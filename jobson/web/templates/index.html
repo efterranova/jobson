@@ -1,0 +1,507 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>JobsOn | LinkedIn Search</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f3f7fb;
+      --surface: #ffffff;
+      --surface-2: #f8fbff;
+      --text: #14213d;
+      --muted: #5f6f83;
+      --line: #d8e2f0;
+      --brand: #0a66c2;
+      --brand-strong: #004182;
+      --ok: #2e8b57;
+      --danger: #b42318;
+      --shadow: 0 18px 40px rgba(10, 46, 84, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Space Grotesk", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 10% 10%, #ddeeff 0%, transparent 35%),
+        radial-gradient(circle at 90% 0%, #f1f8ff 0%, transparent 40%),
+        var(--bg);
+    }
+
+    .wrap {
+      width: min(1200px, 94vw);
+      margin: 24px auto 40px;
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      gap: 18px;
+    }
+
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+    }
+
+    .left {
+      padding: 18px;
+      position: sticky;
+      top: 18px;
+      align-self: start;
+    }
+
+    .title {
+      margin: 0;
+      font-size: 1.25rem;
+      letter-spacing: 0.02em;
+    }
+
+    .sub {
+      margin: 6px 0 14px;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 5px 10px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      background: #e7f0fd;
+      color: var(--brand-strong);
+      margin-bottom: 16px;
+    }
+
+    label {
+      font-weight: 700;
+      font-size: 0.84rem;
+      display: block;
+      margin: 10px 0 6px;
+    }
+
+    input, select, button {
+      width: 100%;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      font: inherit;
+      padding: 10px 11px;
+    }
+
+    input, select {
+      background: var(--surface-2);
+    }
+
+    button {
+      cursor: pointer;
+      font-weight: 700;
+      border: none;
+      background: linear-gradient(120deg, var(--brand), #2f90f5);
+      color: white;
+      margin-top: 14px;
+      transition: transform .16s ease, opacity .16s ease;
+    }
+
+    button:hover { transform: translateY(-1px); }
+    button:disabled { opacity: .6; cursor: wait; }
+
+    .status {
+      min-height: 42px;
+      margin-top: 12px;
+      border-radius: 10px;
+      border: 1px dashed var(--line);
+      padding: 8px 10px;
+      font-size: 0.85rem;
+      color: var(--muted);
+      background: #fbfdff;
+    }
+
+    .right {
+      padding: 14px;
+    }
+
+    .topbar {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+
+    .topbar .small {
+      flex: 1;
+      min-width: 220px;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .stat {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px;
+      background: #fcfeff;
+    }
+
+    .stat .n {
+      font-size: 1.2rem;
+      font-weight: 700;
+      margin-top: 3px;
+    }
+
+    .results-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .result-row {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+      padding: 12px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      align-items: start;
+    }
+
+    .row-head {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 6px;
+      font-size: .74rem;
+      color: var(--muted);
+    }
+
+    .pill {
+      font-size: .67rem;
+      font-weight: 700;
+      padding: 4px 8px;
+      border-radius: 999px;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      border: 1px solid #dce8f8;
+      background: #f1f7ff;
+      color: #1c4f8f;
+    }
+
+    .title-line {
+      margin: 0;
+      font-size: .98rem;
+      line-height: 1.25;
+      font-weight: 700;
+    }
+
+    .context-line {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: .84rem;
+    }
+
+    .meta-line {
+      margin: 8px 0 0;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      font-size: .76rem;
+      color: #37506d;
+    }
+
+    .meta-chip {
+      border: 1px solid #d7e5f5;
+      background: #f7fbff;
+      border-radius: 999px;
+      padding: 2px 8px;
+    }
+
+    .snippet {
+      margin: 8px 0 0;
+      color: #2a3a4f;
+      font-size: .84rem;
+      line-height: 1.4;
+      max-height: 84px;
+      overflow: auto;
+      padding-right: 2px;
+    }
+
+    .actions {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      align-items: flex-end;
+      min-width: 96px;
+    }
+
+    .apply {
+      text-decoration: none;
+      color: #fff;
+      background: #1a6fca;
+      padding: 7px 10px;
+      border-radius: 8px;
+      font-size: .78rem;
+      font-weight: 700;
+    }
+
+    .empty {
+      border: 1px dashed var(--line);
+      border-radius: 12px;
+      padding: 26px;
+      text-align: center;
+      color: var(--muted);
+      background: #fbfdff;
+    }
+
+    .ok { color: var(--ok); }
+    .error { color: var(--danger); }
+
+    @media (max-width: 930px) {
+      .wrap { grid-template-columns: 1fr; }
+      .left { position: static; }
+      .stats { grid-template-columns: 1fr; }
+      .result-row { grid-template-columns: 1fr; }
+      .actions { align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <aside class="panel left">
+      <h1 class="title">JobsOn LinkedIn</h1>
+      <p class="sub">Scraping de jobs + feed con persistencia incremental.</p>
+      <div class="badge">backend: {{ backend_name }}</div>
+      {% if app_role == "viewer" %}
+      <div class="status">Modo visor: este servidor solo muestra resultados desde la base de datos.</div>
+      {% endif %}
+
+      {% if app_role != "viewer" %}
+      <label for="keywords">Palabras clave</label>
+      <input id="keywords" placeholder="Ej: python developer remoto" />
+
+      <label for="mode">Modo</label>
+      <select id="mode">
+        <option value="mixed">Mixto (jobs + feed)</option>
+        <option value="jobs">Solo Jobs</option>
+        <option value="feed">Solo Feed</option>
+      </select>
+
+      <label for="limit">Límite total</label>
+      <input id="limit" type="number" min="1" value="20" />
+
+      <label for="days">Antigüedad máxima (días)</label>
+      <input id="days" type="number" min="1" placeholder="Opcional" />
+
+      <button id="runBtn" onclick="runSearch()">Ejecutar Búsqueda</button>
+      <div id="status" class="status">Listo para ejecutar.</div>
+      {% endif %}
+    </aside>
+
+    <main class="panel right">
+      <div class="topbar">
+        <input id="filterText" class="small" placeholder="Filtrar resultados actuales..." />
+        <select id="filterMode" class="small">
+          <option value="all">Ver todos</option>
+          <option value="jobs">Solo jobs</option>
+          <option value="feed">Solo feed</option>
+        </select>
+        <button style="max-width:170px" onclick="loadResults()">Actualizar Panel</button>
+      </div>
+
+      <section class="stats">
+        <div class="stat"><div>Total visibles</div><div id="stTotal" class="n">0</div></div>
+        <div class="stat"><div>Jobs</div><div id="stJobs" class="n">0</div></div>
+        <div class="stat"><div>Feed</div><div id="stFeed" class="n">0</div></div>
+      </section>
+
+      <section id="cards" class="results-list"></section>
+      <div id="empty" class="empty" style="display:none;">Sin resultados para este filtro.</div>
+    </main>
+  </div>
+
+  <script>
+    let allRecords = [];
+
+    const APP_ROLE = "{{ app_role }}";
+
+    function setStatus(text, kind = "") {
+      const el = document.getElementById("status");
+      if (!el) return;
+      el.classList.remove("ok", "error");
+      if (kind) el.classList.add(kind);
+      el.textContent = text;
+    }
+
+    function pickModeFilter() {
+      const mode = document.getElementById("filterMode").value;
+      return mode === "all" ? "all" : mode;
+    }
+
+    async function runSearch() {
+      if (APP_ROLE === "viewer") {
+        return;
+      }
+      const btn = document.getElementById("runBtn");
+      const keywords = document.getElementById("keywords").value.trim();
+      const mode = document.getElementById("mode").value;
+      const limit = Number(document.getElementById("limit").value || 20);
+      const daysRaw = document.getElementById("days").value;
+
+      if (!keywords) {
+        setStatus("Escribe palabras clave para buscar.", "error");
+        return;
+      }
+
+      btn.disabled = true;
+      setStatus("Ejecutando scraping. Si no hay sesión, se abrirá navegador para login...");
+
+      try {
+        const res = await fetch("/api/search", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            keywords,
+            mode,
+            limit,
+            days: daysRaw ? Number(daysRaw) : null,
+          }),
+        });
+
+        const data = await parseResponseJson(res);
+        if (!res.ok) {
+          setStatus(data.error || "Falló la búsqueda.", "error");
+          return;
+        }
+
+        const msg = `Scraping: ${data.scraped_total}. Nuevos: ${data.persisted.inserted}. ` +
+          `Actualizados/duplicados: ${data.persisted.updated}.`;
+        setStatus(msg, "ok");
+        await loadResults();
+      } catch (err) {
+        setStatus(`Error de red: ${err}`, "error");
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    function renderCards() {
+      const holder = document.getElementById("cards");
+      const empty = document.getElementById("empty");
+      const textFilter = document.getElementById("filterText").value.trim().toLowerCase();
+      const modeFilter = document.getElementById("filterMode").value;
+
+      let rows = allRecords;
+      if (modeFilter !== "all") {
+        rows = rows.filter(r => (r.source_type || "") === modeFilter);
+      }
+
+      if (textFilter) {
+        rows = rows.filter((r) => {
+          const merged = [r.title, r.company, r.author, r.summary, r.content, r.keyword]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase();
+          return merged.includes(textFilter);
+        });
+      }
+
+      document.getElementById("stTotal").textContent = rows.length;
+      document.getElementById("stJobs").textContent = rows.filter(r => r.source_type === "jobs").length;
+      document.getElementById("stFeed").textContent = rows.filter(r => r.source_type === "feed").length;
+
+      holder.innerHTML = "";
+      if (!rows.length) {
+        empty.style.display = "block";
+        return;
+      }
+      empty.style.display = "none";
+
+      rows.forEach((r) => {
+        const isJob = r.source_type === "jobs";
+        const title = isJob ? (r.title || "Sin título") : (r.author || "Post de LinkedIn");
+        const context = isJob ? (r.company || "Sin empresa") : (r.keyword || "Búsqueda feed");
+        const snippet = r.summary || r.content || "Sin contenido";
+        const seniority = r.seniority || "N/A";
+        const applyType = r.apply_type || "N/A";
+        const scrapedAt = (r.scraped_at || "").replace("T", " ").replace("+00:00", " UTC");
+
+        const card = document.createElement("article");
+        card.className = "result-row";
+        card.innerHTML = `
+          <div>
+            <div class="row-head">
+              <span class="pill">${r.source_type || "n/a"}</span>
+              <span>${escapeHtml(scrapedAt.slice(0, 19))}</span>
+            </div>
+            <h3 class="title-line">${escapeHtml(title)}</h3>
+            <p class="context-line">${escapeHtml(context)}</p>
+            <div class="meta-line">
+              <span class="meta-chip">seniority: ${escapeHtml(seniority)}</span>
+              <span class="meta-chip">apply: ${escapeHtml(applyType)}</span>
+            </div>
+            <p class="snippet">${escapeHtml(snippet)}</p>
+          </div>
+          <div class="actions">
+            <a class="apply" href="${r.url || '#'}" target="_blank" rel="noreferrer">Abrir</a>
+          </div>
+        `;
+        holder.appendChild(card);
+      });
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    async function loadResults() {
+      const mode = pickModeFilter();
+      const q = document.getElementById("filterText").value.trim();
+      try {
+        const res = await fetch(`/api/results?mode=${encodeURIComponent(mode)}&q=${encodeURIComponent(q)}&limit=400`);
+        const data = await parseResponseJson(res);
+        if (!res.ok) {
+          const message = data.error || "No se pudo cargar resultados.";
+          const detail = data.detail ? ` (${data.detail})` : "";
+          setStatus(`${message}${detail}`, "error");
+          return;
+        }
+        allRecords = data.records || [];
+        renderCards();
+      } catch (err) {
+        setStatus(`No se pudo cargar resultados: ${err}`, "error");
+      }
+    }
+
+    async function parseResponseJson(res) {
+      const raw = await res.text();
+      try {
+        return JSON.parse(raw);
+      } catch (_err) {
+        return { error: raw || `Respuesta no JSON (status ${res.status})` };
+      }
+    }
+
+    document.getElementById("filterText").addEventListener("input", renderCards);
+    document.getElementById("filterMode").addEventListener("change", loadResults);
+
+    loadResults();
+  </script>
+</body>
+</html>

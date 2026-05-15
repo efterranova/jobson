@@ -7,3 +7,8 @@ logs/
 data/
 sessions/
 .DS_Store
+.vercel
+dist/
+*.bak
+*.bak-pre-merge
+*.bak-pre-fork-merge

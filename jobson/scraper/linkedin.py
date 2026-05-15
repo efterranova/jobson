@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import inspect
 import logging
 import re
 from datetime import UTC, datetime
@@ -10,6 +12,13 @@ from urllib.parse import quote_plus
 
 from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 from playwright.async_api import async_playwright
+
+from jobson.contact_filter import (
+    DEFAULT_PORTAL_BLACKLIST,
+    DEFAULT_SOCIAL_BLACKLIST,
+    domain_of,
+    is_portal_domain,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -98,6 +107,60 @@ class LinkedInScraper:
                 continue
         return ""
 
+    async def _extract_external_apply_href(self, page) -> str:
+        """Best-effort capture of the *external* apply URL without clicking.
+
+        LinkedIn often hides the real URL behind a click that opens a new tab.
+        We do NOT click here (resolving with click is opt-in via flag in the
+        service). We just inspect the apply button's href / data attributes.
+
+        Many "About the company" panels expose social links (YouTube, X, FB)
+        with similar attributes. We discard those — they are NOT apply URLs.
+        """
+        selectors = [
+            ".jobs-apply-button[href]",
+            "a.jobs-apply-button",
+            ".jobs-s-apply a[href]",
+            ".jobs-apply-button--top-card[href]",
+            "a[href*='offsite_apply']",
+            "a[data-job-apply-url]",
+            "a[data-application-url]",
+        ]
+        attrs = ("href", "data-job-apply-url", "data-application-url")
+        for selector in selectors:
+            try:
+                button = page.locator(selector).first
+                if not await button.count():
+                    continue
+                for attr in attrs:
+                    value = await button.get_attribute(attr)
+                    if not value:
+                        continue
+                    value = value.strip()
+                    if not value or value.startswith("javascript:") or value == "#":
+                        continue
+                    if value.startswith("/"):
+                        value = self.base_url + value
+                    domain = domain_of(value)
+                    if is_portal_domain(domain, DEFAULT_SOCIAL_BLACKLIST):
+                        # Social link masquerading as apply button → skip.
+                        continue
+                    return value
+            except Exception:
+                continue
+        return ""
+
+    async def _notify_record(self, on_record, record: dict[str, Any]) -> None:
+        if on_record is None:
+            return
+        try:
+            maybe_awaitable = on_record(record)
+            if inspect.isawaitable(maybe_awaitable):
+                await maybe_awaitable
+        except Exception:
+            # Progress hooks should never break scraping.
+            return
+
     def _extract_job_id(self, raw_id: str | None, url: str | None = None) -> str:
         if raw_id:
             if ":" in raw_id:
@@ -110,7 +173,80 @@ class LinkedInScraper:
         match = re.search(r"/jobs/view/(\d+)", url)
         return match.group(1) if match else ""
 
-    async def scrape_jobs(self, keywords: str, limit: int, antiquity_days: int | None = None) -> list[dict[str, Any]]:
+    def _normalize_linkedin_url(self, href: str | None) -> str:
+        if not href:
+            return ""
+        href = href.strip()
+        if not href:
+            return ""
+        if href.startswith("/"):
+            href = f"{self.base_url}{href}"
+        if "linkedin.com" not in href:
+            return ""
+        # Remove tracking query params for cleaner, stable URLs.
+        return href.split("?")[0]
+
+    def _extract_post_url_from_post_id(self, post_id: str | None) -> str:
+        if not post_id:
+            return ""
+
+        activity_match = re.search(r"activity:(\d+)", post_id)
+        if activity_match:
+            activity_id = activity_match.group(1)
+            return f"{self.base_url}/feed/update/urn:li:activity:{activity_id}/"
+
+        ugc_match = re.search(r"ugcPost:(\d+)", post_id)
+        if ugc_match:
+            ugc_id = ugc_match.group(1)
+            return f"{self.base_url}/feed/update/urn:li:ugcPost:{ugc_id}/"
+
+        return ""
+
+    async def _extract_post_link_from_card(self, card) -> str:
+        hrefs: list[str] = []
+        try:
+            raw_hrefs = await card.locator("a[href]").evaluate_all("els => els.map(el => el.getAttribute('href'))")
+            hrefs = [self._normalize_linkedin_url(item) for item in raw_hrefs if item]
+            hrefs = [item for item in hrefs if item]
+        except Exception:
+            hrefs = []
+
+        if not hrefs:
+            return ""
+
+        priority_patterns = [
+            "/feed/update/urn:li:activity:",
+            "/feed/update/urn:li:ugcPost:",
+            "/feed/update/",
+            "/posts/",
+            "/pulse/",
+        ]
+        for pattern in priority_patterns:
+            for href in hrefs:
+                if pattern in href:
+                    return href
+
+        # Discard likely non-post links (profile/company/search).
+        for href in hrefs:
+            if "/search/results/" in href:
+                continue
+            if "/in/" in href:
+                continue
+            if "/company/" in href:
+                continue
+            if "/jobs/" in href:
+                continue
+            return href
+
+        return ""
+
+    async def scrape_jobs(
+        self,
+        keywords: str,
+        limit: int,
+        antiquity_days: int | None = None,
+        on_record=None,
+    ) -> list[dict[str, Any]]:
         playwright, browser, _, page = await self._get_authenticated_page()
         results: list[dict[str, Any]] = []
         seen_ids: set[str] = set()
@@ -186,11 +322,43 @@ class LinkedInScraper:
                             ],
                         )
 
+                        location_text = await self._first_visible_text(
+                            card,
+                            [
+                                ".job-card-container__metadata-item",
+                                ".job-card-container__metadata-wrapper li",
+                                ".artdeco-entity-lockup__caption",
+                                ".job-card__location",
+                                ".base-search-card__metadata",
+                            ],
+                        )
+
                         detail_text = ""
                         detail_html = ""
                         try:
                             await card.click(timeout=2000)
                             await asyncio.sleep(1.4)
+
+                            # Click "Ver más" / "Show more" para expandir descripción
+                            # truncada — muchas empresas esconden el email tras el
+                            # botón de expandir.
+                            for see_more_sel in [
+                                'button:has-text("Ver más")',
+                                'button:has-text("ver más")',
+                                'button:has-text("Show more")',
+                                'button:has-text("show more")',
+                                ".jobs-description__footer-button",
+                                ".feed-shared-inline-show-more-text__see-more-less-toggle",
+                            ]:
+                                try:
+                                    btn = page.locator(see_more_sel).first
+                                    if await btn.is_visible(timeout=600):
+                                        await btn.click(timeout=1500)
+                                        await asyncio.sleep(0.6)
+                                        break
+                                except Exception:
+                                    continue
+
                             detail = page.locator(
                                 ".jobs-search__job-details, .jobs-description-content, .jobs-details__main-content"
                             ).first
@@ -200,24 +368,28 @@ class LinkedInScraper:
                         except Exception:
                             pass
 
+                        apply_url_external = await self._extract_external_apply_href(page)
+
                         full_url = card_link or f"{self.base_url}/jobs/view/{job_id}/"
                         summary = (detail_text[:260] + "...") if len(detail_text) > 260 else detail_text
 
-                        results.append(
-                            {
-                                "source_type": "jobs",
-                                "source_id": job_id,
-                                "title": title or "Sin título",
-                                "company": company or "Sin empresa",
-                                "author": "",
-                                "summary": summary,
-                                "content": detail_text,
-                                "seniority": self._estimate_seniority(title, detail_text),
-                                "apply_type": self._detect_apply_type(detail_html),
-                                "url": full_url,
-                                "scraped_at": datetime.now(UTC).isoformat(),
-                            }
-                        )
+                        record = {
+                            "source_type": "jobs",
+                            "source_id": job_id,
+                            "title": title or "Sin título",
+                            "company": company or "Sin empresa",
+                            "author": "",
+                            "summary": summary,
+                            "content": detail_text,
+                            "seniority": self._estimate_seniority(title, detail_text),
+                            "apply_type": self._detect_apply_type(detail_html),
+                            "url": full_url,
+                            "location_text": location_text or None,
+                            "apply_url_external": apply_url_external or None,
+                            "scraped_at": datetime.now(UTC).isoformat(),
+                        }
+                        results.append(record)
+                        await self._notify_record(on_record, record)
                     except Exception:
                         continue
 
@@ -246,7 +418,22 @@ class LinkedInScraper:
             await browser.close()
             await playwright.stop()
 
-    async def scrape_posts(self, keywords: str, limit: int, antiquity_days: int | None = None) -> list[dict[str, Any]]:
+    async def scrape_posts(
+        self,
+        keywords: str,
+        limit: int,
+        antiquity_days: int | None = None,
+        on_record=None,
+    ) -> list[dict[str, Any]]:
+        """LinkedIn search/results/content — scraping moderno (post-2025 SDUI).
+
+        LinkedIn migró a Server-Driven UI con clases CSS hasheadas inestables.
+        Las únicas señales confiables son:
+          - aria-label="Abrir el menú de controles para la publicación de NOMBRE"
+            → identifica un post + su autor.
+          - [data-testid="expandable-text-box"] → contiene el texto del post.
+          - [data-testid="expandable-text-button"] → botón "Ver más".
+        """
         playwright, browser, _, page = await self._get_authenticated_page()
         results: list[dict[str, Any]] = []
         seen_ids: set[str] = set()
@@ -268,77 +455,135 @@ class LinkedInScraper:
             await asyncio.sleep(4)
 
             no_new_rounds = 0
+            processed_aria: set[str] = set()
+
             while len(results) < limit and no_new_rounds <= 8:
-                cards = await page.locator(
-                    ".feed-shared-update-v2, .search-content-entity-lockup, .search-results-container [data-urn]"
+                # Aria-labels en español e inglés.
+                handles = await page.locator(
+                    '[aria-label^="Abrir el menú de controles para la publicación"], '
+                    '[aria-label^="Open control menu for post"]'
                 ).all()
 
-                if not cards:
+                if not handles:
                     no_new_rounds += 1
-                    await page.evaluate("window.scrollBy(0, 1000)")
+                    if no_new_rounds == 4:
+                        logger.warning(
+                            "feed: 0 posts visibles después de 4 rondas. "
+                            "Posible que la sesión perdió permisos o LinkedIn "
+                            "movió aria-labels. URL=%s",
+                            search_url,
+                        )
+                    await page.evaluate("window.scrollBy(0, 1200)")
                     await asyncio.sleep(2)
                     continue
 
                 before = len(results)
-                for card in cards:
+                for handle in handles:
                     if len(results) >= limit:
                         break
 
                     try:
-                        post_id = await card.get_attribute("data-urn")
-                        if not post_id:
-                            post_id = await card.get_attribute("data-id")
+                        aria = (await handle.get_attribute("aria-label")) or ""
+                        if aria in processed_aria:
+                            continue
+                        processed_aria.add(aria)
 
-                        if not post_id or post_id in seen_ids:
+                        # Autor: lo que viene tras "publicación de" o "post by".
+                        author = ""
+                        m = re.search(
+                            r"(?:publicaci[oó]n de|post by)\s+(.+?)\s*$",
+                            aria,
+                            re.IGNORECASE,
+                        )
+                        if m:
+                            author = m.group(1).strip()
+
+                        # Subimos al primer ancestor que también contiene un
+                        # expandable-text-box: ese es el contenedor del post.
+                        container = handle.locator(
+                            'xpath=ancestor::*[descendant::*[@data-testid="expandable-text-box"]][1]'
+                        )
+                        if not await container.count():
+                            continue
+
+                        # Click "Ver más" para expandir el contenido truncado.
+                        try:
+                            btn = container.locator(
+                                '[data-testid="expandable-text-button"]'
+                            ).first
+                            if await btn.is_visible(timeout=400):
+                                await btn.click(timeout=1000)
+                                await asyncio.sleep(0.4)
+                        except Exception:
+                            pass
+
+                        # Contenido del post.
+                        content = ""
+                        try:
+                            box = container.locator(
+                                '[data-testid="expandable-text-box"]'
+                            ).first
+                            if await box.count():
+                                content = (await box.inner_text(timeout=2000)).strip()
+                        except Exception:
+                            content = ""
+
+                        # URL: buscar primer href que apunte al post específico.
+                        link = ""
+                        try:
+                            hrefs = await container.locator("a[href]").evaluate_all(
+                                "els => els.map(e => e.href)"
+                            )
+                            for href in hrefs:
+                                low = (href or "").lower()
+                                if "urn:li:activity" in low or "/feed/update/" in low:
+                                    link = href
+                                    break
+                            # Fallback: primer link a /posts/ del autor.
+                            if not link:
+                                for href in hrefs:
+                                    if "/posts/" in (href or "").lower():
+                                        link = href
+                                        break
+                        except Exception:
+                            pass
+
+                        # source_id estable.
+                        post_id = ""
+                        if link:
+                            urn_match = re.search(r"urn:li:activity:(\d+)", link)
+                            if urn_match:
+                                post_id = f"activity:{urn_match.group(1)}"
+                            else:
+                                ugc_match = re.search(r"urn:li:ugcPost:(\d+)", link)
+                                if ugc_match:
+                                    post_id = f"ugcPost:{ugc_match.group(1)}"
+                        if not post_id:
+                            seed = f"{author}|{content[:300]}".strip()
+                            digest = hashlib.sha1(seed.encode("utf-8")).hexdigest()[:20]
+                            post_id = f"feed-item:{digest}"
+
+                        if post_id in seen_ids:
                             continue
                         seen_ids.add(post_id)
 
-                        author = await self._first_visible_text(
-                            card,
-                            [
-                                ".update-components-actor__name",
-                                ".feed-shared-actor__name",
-                                ".app-aware-link",
-                            ],
-                        )
-
-                        content = await self._first_visible_text(
-                            card,
-                            [
-                                ".feed-shared-update-v2__description",
-                                ".update-components-text",
-                                ".feed-shared-text",
-                            ],
-                        )
-
-                        link = ""
-                        try:
-                            href = await card.locator("a[href*='/feed/update/']").first.get_attribute("href")
-                            if href:
-                                link = href if href.startswith("http") else f"{self.base_url}{href}"
-                        except Exception:
-                            link = ""
-
-                        if not link and "update" in post_id:
-                            cleaned = post_id.split(":")[-1]
-                            link = f"{self.base_url}/feed/update/{cleaned}/"
-
-                        results.append(
-                            {
-                                "source_type": "feed",
-                                "source_id": post_id,
-                                "title": "",
-                                "company": "",
-                                "author": author or "Autor desconocido",
-                                "summary": (content[:260] + "...") if len(content) > 260 else content,
-                                "content": content,
-                                "seniority": self._estimate_seniority("", content),
-                                "apply_type": "N/A",
-                                "url": link or page.url,
-                                "scraped_at": datetime.now(UTC).isoformat(),
-                            }
-                        )
-                    except Exception:
+                        record = {
+                            "source_type": "feed",
+                            "source_id": post_id,
+                            "title": "",
+                            "company": "",
+                            "author": author or "Autor desconocido",
+                            "summary": (content[:260] + "...") if len(content) > 260 else content,
+                            "content": content,
+                            "seniority": self._estimate_seniority("", content),
+                            "apply_type": "N/A",
+                            "url": link,
+                            "scraped_at": datetime.now(UTC).isoformat(),
+                        }
+                        results.append(record)
+                        await self._notify_record(on_record, record)
+                    except Exception as exc:
+                        logger.debug("feed: salto post por error: %s", exc)
                         continue
 
                 if len(results) == before:
@@ -346,7 +591,7 @@ class LinkedInScraper:
                 else:
                     no_new_rounds = 0
 
-                await page.evaluate("window.scrollBy(0, 1100)")
+                await page.evaluate("window.scrollBy(0, 1200)")
                 await asyncio.sleep(2)
 
             return results
@@ -354,10 +599,26 @@ class LinkedInScraper:
             await browser.close()
             await playwright.stop()
 
-    async def scrape_mixed(self, keywords: str, limit: int, antiquity_days: int | None = None) -> list[dict[str, Any]]:
+    async def scrape_mixed(
+        self,
+        keywords: str,
+        limit: int,
+        antiquity_days: int | None = None,
+        on_record=None,
+    ) -> list[dict[str, Any]]:
         jobs_limit = max(1, limit // 2)
         feed_limit = max(1, limit - jobs_limit)
 
-        jobs = await self.scrape_jobs(keywords=keywords, limit=jobs_limit, antiquity_days=antiquity_days)
-        feed = await self.scrape_posts(keywords=keywords, limit=feed_limit, antiquity_days=antiquity_days)
+        jobs = await self.scrape_jobs(
+            keywords=keywords,
+            limit=jobs_limit,
+            antiquity_days=antiquity_days,
+            on_record=on_record,
+        )
+        feed = await self.scrape_posts(
+            keywords=keywords,
+            limit=feed_limit,
+            antiquity_days=antiquity_days,
+            on_record=on_record,
+        )
         return jobs + feed

@@ -1,0 +1,4 @@
+# Dependencias del modo full (scraping local con Playwright).
+# Para Vercel se usa requirements.txt que excluye Playwright (300MB+).
+-r requirements.txt
+playwright>=1.58.0

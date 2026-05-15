@@ -3,505 +3,768 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>JobsOn | LinkedIn Search</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <title>JobsOn | Scraper LinkedIn + TPE para erecruit.ca</title>
   <style>
     :root {
-      --bg: #f3f7fb;
-      --surface: #ffffff;
-      --surface-2: #f8fbff;
-      --text: #14213d;
-      --muted: #5f6f83;
-      --line: #d8e2f0;
-      --brand: #0a66c2;
-      --brand-strong: #004182;
-      --ok: #2e8b57;
-      --danger: #b42318;
-      --shadow: 0 18px 40px rgba(10, 46, 84, 0.08);
+      --bg: #0f172a;
+      --surface: #111c33;
+      --surface-2: #16213b;
+      --line: #1f2c4a;
+      --text: #e6edf7;
+      --muted: #93a4be;
+      --brand: #38bdf8;
+      --brand-strong: #0ea5e9;
+      --ok: #22c55e;
+      --warn: #f59e0b;
+      --danger: #ef4444;
+      --shadow: 0 18px 40px rgba(2, 6, 23, 0.5);
     }
-
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      font-family: "Space Grotesk", sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif;
       color: var(--text);
-      background:
-        radial-gradient(circle at 10% 10%, #ddeeff 0%, transparent 35%),
-        radial-gradient(circle at 90% 0%, #f1f8ff 0%, transparent 40%),
-        var(--bg);
+      background: radial-gradient(circle at 10% 0%, #1e293b 0%, var(--bg) 60%);
+      min-height: 100vh;
     }
-
     .wrap {
-      width: min(1200px, 94vw);
-      margin: 24px auto 40px;
+      width: min(1280px, 96vw);
+      margin: 24px auto 60px;
       display: grid;
       grid-template-columns: 320px 1fr;
       gap: 18px;
     }
-
     .panel {
       background: var(--surface);
       border: 1px solid var(--line);
-      border-radius: 16px;
+      border-radius: 14px;
       box-shadow: var(--shadow);
     }
-
-    .left {
-      padding: 18px;
-      position: sticky;
-      top: 18px;
-      align-self: start;
-    }
-
-    .title {
-      margin: 0;
-      font-size: 1.25rem;
-      letter-spacing: 0.02em;
-    }
-
-    .sub {
-      margin: 6px 0 14px;
-      color: var(--muted);
-      font-size: 0.9rem;
-    }
-
+    .left { padding: 18px; position: sticky; top: 18px; align-self: start; }
+    .title { margin: 0; font-size: 1.25rem; }
+    .sub { margin: 4px 0 14px; color: var(--muted); font-size: 0.85rem; }
     .badge {
-      display: inline-flex;
-      align-items: center;
-      border-radius: 999px;
-      padding: 5px 10px;
-      font-size: 0.72rem;
-      font-weight: 700;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-      background: #e7f0fd;
-      color: var(--brand-strong);
-      margin-bottom: 16px;
+      display: inline-flex; align-items: center;
+      border-radius: 999px; padding: 4px 10px;
+      font-size: 0.7rem; font-weight: 700;
+      letter-spacing: 0.04em; text-transform: uppercase;
+      background: rgba(56, 189, 248, 0.15); color: var(--brand);
     }
-
-    label {
-      font-weight: 700;
-      font-size: 0.84rem;
-      display: block;
-      margin: 10px 0 6px;
-    }
-
-    input, select, button {
-      width: 100%;
-      border-radius: 10px;
+    .session-card {
+      margin: 14px 0 6px;
+      padding: 12px 14px;
       border: 1px solid var(--line);
-      font: inherit;
-      padding: 10px 11px;
-    }
-
-    input, select {
+      border-radius: 12px;
       background: var(--surface-2);
+      display: flex; flex-direction: column; gap: 8px;
     }
-
-    button {
-      cursor: pointer;
-      font-weight: 700;
-      border: none;
-      background: linear-gradient(120deg, var(--brand), #2f90f5);
-      color: white;
-      margin-top: 14px;
-      transition: transform .16s ease, opacity .16s ease;
+    .session-row { display: flex; align-items: center; gap: 10px; }
+    .session-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: var(--muted); flex: 0 0 auto;
+      box-shadow: 0 0 0 3px transparent;
+      transition: all 0.2s;
     }
-
-    button:hover { transform: translateY(-1px); }
-    button:disabled { opacity: .6; cursor: wait; }
-
-    .status {
-      min-height: 42px;
-      margin-top: 12px;
+    .session-dot.ok { background: var(--ok); box-shadow: 0 0 0 3px rgba(34,197,94,0.18); }
+    .session-dot.warn { background: var(--warn); box-shadow: 0 0 0 3px rgba(245,158,11,0.18); }
+    .session-dot.danger { background: var(--danger); box-shadow: 0 0 0 3px rgba(239,68,68,0.18); }
+    .session-dot.busy {
+      background: var(--brand);
+      box-shadow: 0 0 0 3px rgba(56,189,248,0.18);
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+    @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: 0.4 } }
+    .session-label { font-size: 0.86rem; font-weight: 600; }
+    .session-meta { font-size: 0.74rem; color: var(--muted); }
+    button.tiny {
+      padding: 8px 12px;
+      font-size: 0.78rem;
+      width: auto;
+    }
+    label { display: block; font-size: 0.8rem; color: var(--muted); margin: 12px 0 4px; }
+    input, select, textarea, button {
+      font: inherit;
+      background: var(--surface-2);
+      border: 1px solid var(--line);
+      color: var(--text);
       border-radius: 10px;
-      border: 1px dashed var(--line);
-      padding: 8px 10px;
-      font-size: 0.85rem;
-      color: var(--muted);
-      background: #fbfdff;
+      padding: 10px 12px;
+      width: 100%;
     }
-
-    .right {
-      padding: 14px;
+    button {
+      cursor: pointer; font-weight: 700;
+      background: var(--brand-strong); color: #001627;
+      border: none;
     }
-
-    .topbar {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-      margin-bottom: 12px;
-    }
-
-    .topbar .small {
-      flex: 1;
-      min-width: 220px;
-    }
-
-    .stats {
+    button.secondary { background: var(--surface-2); color: var(--text); border: 1px solid var(--line); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .right { padding: 18px; }
+    .toolbar {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 8px;
+      grid-template-columns: 2fr 1fr 1fr 1fr auto;
+      gap: 10px;
       margin-bottom: 14px;
+      align-items: end;
     }
-
-    .stat {
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      padding: 10px;
-      background: #fcfeff;
-    }
-
-    .stat .n {
-      font-size: 1.2rem;
-      font-weight: 700;
-      margin-top: 3px;
-    }
-
-    .results-list {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-
-    .result-row {
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      background: #fff;
-      padding: 12px;
-      display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 12px;
-      align-items: start;
-    }
-
-    .row-head {
-      display: flex;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-bottom: 6px;
-      font-size: .74rem;
-      color: var(--muted);
-    }
-
+    .stats { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
     .pill {
-      font-size: .67rem;
-      font-weight: 700;
-      padding: 4px 8px;
-      border-radius: 999px;
-      text-transform: uppercase;
-      letter-spacing: .04em;
-      border: 1px solid #dce8f8;
-      background: #f1f7ff;
-      color: #1c4f8f;
+      background: var(--surface-2); border: 1px solid var(--line);
+      border-radius: 999px; padding: 6px 12px;
+      font-size: 0.78rem; color: var(--muted);
     }
-
-    .title-line {
-      margin: 0;
-      font-size: .98rem;
-      line-height: 1.25;
-      font-weight: 700;
+    .pill strong { color: var(--text); margin-left: 6px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td {
+      padding: 10px 8px; border-bottom: 1px solid var(--line);
+      vertical-align: top; font-size: 0.86rem;
     }
-
-    .context-line {
-      margin: 4px 0 0;
-      color: var(--muted);
-      font-size: .84rem;
+    th { text-align: left; color: var(--muted); font-weight: 500; font-size: 0.74rem; text-transform: uppercase; }
+    td a { color: var(--brand); text-decoration: none; }
+    .chip {
+      display: inline-block; padding: 2px 8px; border-radius: 999px;
+      font-size: 0.7rem; font-weight: 700;
     }
-
-    .meta-line {
-      margin: 8px 0 0;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      font-size: .76rem;
-      color: #37506d;
+    .chip.src-li { background: rgba(56,189,248,0.18); color: var(--brand); }
+    .chip.src-tpe { background: rgba(168,85,247,0.18); color: #c084fc; }
+    .chip.src-other { background: rgba(148,163,184,0.18); color: var(--muted); }
+    .chip.email { background: rgba(34,197,94,0.15); color: var(--ok); }
+    .chip.web { background: rgba(56,189,248,0.15); color: var(--brand); }
+    .chip.ambos { background: rgba(168,85,247,0.18); color: #c084fc; }
+    .chip.sin { background: rgba(148,163,184,0.15); color: var(--muted); }
+    .chip.pending { background: rgba(245,158,11,0.15); color: var(--warn); }
+    .chip.synced { background: rgba(34,197,94,0.15); color: var(--ok); }
+    .chip.skipped { background: rgba(148,163,184,0.15); color: var(--muted); }
+    .chip.failed { background: rgba(239,68,68,0.15); color: var(--danger); }
+    .chip.discarded { background: rgba(239,68,68,0.10); color: var(--danger); border: 1px dashed var(--danger); }
+    button.row-action {
+      width: auto; padding: 5px 10px; font-size: 0.72rem;
+      background: var(--surface-2); color: var(--muted); border: 1px solid var(--line);
+      border-radius: 8px; cursor: pointer;
     }
-
-    .meta-chip {
-      border: 1px solid #d7e5f5;
-      background: #f7fbff;
-      border-radius: 999px;
-      padding: 2px 8px;
+    button.row-action:hover { color: var(--text); border-color: var(--brand); }
+    button.row-action.discard:hover { color: var(--danger); border-color: var(--danger); }
+    button.row-action.restore:hover { color: var(--ok); border-color: var(--ok); }
+    button.row-action.approve { color: var(--ok); }
+    button.row-action.approve:hover { color: var(--text); background: var(--ok); border-color: var(--ok); }
+    button.row-action.reject { color: var(--warn); }
+    button.row-action.reject:hover { color: var(--text); background: var(--warn); border-color: var(--warn); }
+    button#syncWpBtn {
+      width: auto; padding: 10px 16px;
+      background: var(--ok); color: #001f0f;
+      font-weight: 700; border: none; border-radius: 10px;
+      cursor: pointer;
     }
-
-    .snippet {
-      margin: 8px 0 0;
-      color: #2a3a4f;
-      font-size: .84rem;
-      line-height: 1.4;
-      max-height: 84px;
-      overflow: auto;
-      padding-right: 2px;
-    }
-
-    .actions {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      align-items: flex-end;
-      min-width: 96px;
-    }
-
-    .apply {
-      text-decoration: none;
-      color: #fff;
-      background: #1a6fca;
-      padding: 7px 10px;
-      border-radius: 8px;
-      font-size: .78rem;
-      font-weight: 700;
-    }
-
-    .empty {
-      border: 1px dashed var(--line);
-      border-radius: 12px;
-      padding: 26px;
-      text-align: center;
-      color: var(--muted);
-      background: #fbfdff;
-    }
-
-    .ok { color: var(--ok); }
-    .error { color: var(--danger); }
-
-    @media (max-width: 930px) {
-      .wrap { grid-template-columns: 1fr; }
-      .left { position: static; }
-      .stats { grid-template-columns: 1fr; }
-      .result-row { grid-template-columns: 1fr; }
-      .actions { align-items: flex-start; }
-    }
+    button#syncWpBtn:hover { background: #16a34a; color: white; }
+    button#syncWpBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .chip.review-pending { background: rgba(245,158,11,0.18); color: var(--warn); }
+    .chip.review-approved { background: rgba(34,197,94,0.18); color: var(--ok); }
+    .chip.review-rejected { background: rgba(239,68,68,0.18); color: var(--danger); }
+    .chip.review-published { background: rgba(56,189,248,0.18); color: var(--brand); }
+    .row-meta { color: var(--muted); font-size: 0.75rem; }
+    .progress { font-size: 0.85rem; color: var(--muted); margin-top: 10px; }
+    .progress strong { color: var(--text); }
+    .checkbox-row { display:flex; align-items:center; gap:8px; margin-top:10px; font-size: 0.85rem; }
+    .checkbox-row input { width:auto; }
   </style>
 </head>
 <body>
   <div class="wrap">
     <aside class="panel left">
-      <h1 class="title">JobsOn LinkedIn</h1>
-      <p class="sub">Scraping de jobs + feed con persistencia incremental.</p>
-      <div class="badge">backend: {{ backend_name }}</div>
-      {% if app_role == "viewer" %}
-      <div class="status">Modo visor: este servidor solo muestra resultados desde la base de datos.</div>
-      {% endif %}
+      <span class="badge" id="backendBadge">backend: {{ backend_name }}</span>
+      <h1 class="title">JobsOn</h1>
+      <p class="sub">Feeder de empleos LinkedIn → WP Job Manager (Fase 1).</p>
 
-      {% if app_role != "viewer" %}
-      <label for="keywords">Palabras clave</label>
-      <input id="keywords" placeholder="Ej: python developer remoto" />
+      <div class="session-card">
+        <div class="session-row">
+          <span class="session-dot" id="sessionDot"></span>
+          <span class="session-label" id="sessionLabel">Comprobando sesión LinkedIn…</span>
+        </div>
+        <div class="session-meta" id="sessionMeta"></div>
+        {% if app_role != 'viewer' %}
+        <button class="tiny secondary" id="loginBtn" style="display:none;">Iniciar sesión en LinkedIn</button>
+        {% endif %}
+      </div>
 
-      <label for="mode">Modo</label>
-      <select id="mode">
-        <option value="mixed">Mixto (jobs + feed)</option>
-        <option value="jobs">Solo Jobs</option>
-        <option value="feed">Solo Feed</option>
+      <label>Palabras clave (coma para varias · vacío = scrape masivo TPE)</label>
+      <input id="keywords" placeholder="ej: developer, desarrollador" />
+
+      <label>Fuentes a scrapear</label>
+      <div class="checkbox-row" style="margin-top:4px;">
+        <input type="checkbox" id="srcLinkedin" checked />
+        <label for="srcLinkedin" style="margin:0;">LinkedIn</label>
+      </div>
+      <div class="checkbox-row">
+        <input type="checkbox" id="srcTpe" checked />
+        <label for="srcTpe" style="margin:0;">TuPortalEmpleo (Ecuador)</label>
+      </div>
+
+      <label>Modo LinkedIn</label>
+      <select id="linkedinMode">
+        <option value="mixed" selected>Mixto (jobs + feed)</option>
+        <option value="jobs">Solo jobs</option>
+        <option value="feed">Solo feed</option>
       </select>
 
-      <label for="limit">Límite total</label>
-      <input id="limit" type="number" min="1" value="20" />
+      <label>Límite por fuente (TPE puede dar 100+)</label>
+      <input id="limit" type="number" min="1" value="50" />
 
-      <label for="days">Antigüedad máxima (días)</label>
-      <input id="days" type="number" min="1" placeholder="Opcional" />
+      <label>Días máximos</label>
+      <input id="days" type="number" min="1" placeholder="vacío = cualquiera" />
 
-      <button id="runBtn" onclick="runSearch()">Ejecutar Búsqueda</button>
-      <div id="status" class="status">Listo para ejecutar.</div>
+      <label>Excluir palabras (CSV)</label>
+      <input id="excludeKeywords" placeholder="senior, manager" />
+
+      <label>Idiomas (CSV)</label>
+      <input id="languages" placeholder="es, en" />
+
+      {% if app_role != 'viewer' %}
+      <button id="runBtn" style="margin-top:14px;">Lanzar búsqueda</button>
+      {% else %}
+      <p class="sub" style="margin-top:12px; color: var(--warn);">Servidor en modo visor — usa la CLI local para scrapear.</p>
       {% endif %}
+
+      <div class="progress" id="progress" style="display:none;"></div>
     </aside>
 
     <main class="panel right">
-      <div class="topbar">
-        <input id="filterText" class="small" placeholder="Filtrar resultados actuales..." />
-        <select id="filterMode" class="small">
-          <option value="all">Ver todos</option>
-          <option value="jobs">Solo jobs</option>
-          <option value="feed">Solo feed</option>
+      <div class="toolbar">
+        <input id="search" placeholder="Buscar título, empresa, email…" />
+        <select id="filterMode">
+          <option value="all">Todas las fuentes</option>
+          <option value="jobs">LinkedIn jobs</option>
+          <option value="feed">LinkedIn feed</option>
+          <option value="tpe">TuPortalEmpleo</option>
         </select>
-        <button style="max-width:170px" onclick="loadResults()">Actualizar Panel</button>
+        <select id="filterWpStatus">
+          <option value="all">WP: todos</option>
+          <option value="pending" selected>WP: pending</option>
+          <option value="synced">WP: synced</option>
+          <option value="skipped">WP: skipped</option>
+          <option value="failed">WP: failed</option>
+          <option value="discarded">WP: descartados</option>
+        </select>
+        <select id="filterContact">
+          <option value="all">Contacto: todos</option>
+          <option value="tiene_email">Solo email</option>
+          <option value="tiene_web">Solo web</option>
+          <option value="tiene_ambos">Email + web</option>
+          <option value="sin_contacto">Sin contacto</option>
+        </select>
+        <select id="filterReview">
+          <option value="all">Revisión: todas</option>
+          <option value="pending" selected>Revisión: pending</option>
+          <option value="approved">Revisión: aprobadas</option>
+          <option value="rejected">Revisión: rechazadas</option>
+          <option value="published">Revisión: publicadas</option>
+        </select>
+        <button class="secondary" id="reloadBtn">Refrescar</button>
+        <button id="syncWpBtn" title="Publica TODAS las aprobadas con contacto válido en WordPress">▲ Sincronizar a WP</button>
+      </div>
+      <div class="checkbox-row">
+        <input type="checkbox" id="onlyNewToday" />
+        <label for="onlyNewToday" style="margin:0;">Solo nuevos de hoy</label>
       </div>
 
-      <section class="stats">
-        <div class="stat"><div>Total visibles</div><div id="stTotal" class="n">0</div></div>
-        <div class="stat"><div>Jobs</div><div id="stJobs" class="n">0</div></div>
-        <div class="stat"><div>Feed</div><div id="stFeed" class="n">0</div></div>
-      </section>
+      <div class="stats" id="stats"></div>
 
-      <section id="cards" class="results-list"></section>
-      <div id="empty" class="empty" style="display:none;">Sin resultados para este filtro.</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Empleo</th>
+            <th>Empresa</th>
+            <th>Ubicación</th>
+            <th>Fuente</th>
+            <th>Contacto</th>
+            <th>Revisión / WP</th>
+            <th>Visto</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="resultsBody"></tbody>
+      </table>
     </main>
   </div>
 
-  <script>
-    let allRecords = [];
+<script>
+const $ = (id) => document.getElementById(id);
+let pollTimer = null;
 
-    const APP_ROLE = "{{ app_role }}";
+function chip(cls, label) {
+  return `<span class="chip ${cls}">${label}</span>`;
+}
 
-    function setStatus(text, kind = "") {
-      const el = document.getElementById("status");
-      if (!el) return;
-      el.classList.remove("ok", "error");
-      if (kind) el.classList.add(kind);
-      el.textContent = text;
+function escape(text) {
+  return (text || "").toString()
+    .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+
+function safeHost(url) {
+  try { return new URL(url).hostname; } catch (_) { return url || ""; }
+}
+
+function fmtContact(row) {
+  const parts = [];
+  if (row.contact_status === "tiene_ambos") parts.push(chip("ambos","email + web"));
+  else if (row.contact_status === "tiene_email") parts.push(chip("email","email"));
+  else if (row.contact_status === "tiene_web") parts.push(chip("web","web"));
+  else parts.push(chip("sin","sin contacto"));
+
+  const detail = [];
+  if (row.apply_email) detail.push(`<a href="mailto:${escape(row.apply_email)}">${escape(row.apply_email)}</a>`);
+  if (row.apply_url_external) detail.push(`<a href="${escape(row.apply_url_external)}" target="_blank" rel="noopener">${escape(safeHost(row.apply_url_external))}</a>`);
+  return parts.join(" ") + (detail.length ? `<div class="row-meta">${detail.join(" · ")}</div>` : "");
+}
+
+function fmtWp(row) {
+  const rev = row.review_status || "pending";
+  const wp = row.wp_status || "skipped";
+  const wpLink = row.published_wp_url
+    ? `<div class="row-meta"><a href="${escape(row.published_wp_url)}" target="_blank" rel="noopener">WP #${row.published_post_id}</a></div>`
+    : "";
+  return `${chip("review-"+rev, "rev: "+rev)} ${chip(wp, "wp: "+wp)}${wpLink}`;
+}
+
+function fmtSeen(row) {
+  const first = row.first_seen_at ? new Date(row.first_seen_at).toLocaleString() : "—";
+  const last = row.last_seen_at ? new Date(row.last_seen_at).toLocaleString() : "";
+  return `<div>${escape(first)}</div><div class="row-meta">last: ${escape(last)}</div>`;
+}
+
+async function loadResults() {
+  const params = new URLSearchParams({
+    mode: $("filterMode").value,
+    wp_status: $("filterWpStatus").value,
+    contact_status: $("filterContact").value,
+    review_status: $("filterReview").value,
+    q: $("search").value || "",
+    new_today: $("onlyNewToday").checked ? "1" : "",
+    limit: 300,
+  });
+  const res = await fetch("/api/results?" + params.toString());
+  const data = await res.json();
+  if (!res.ok) {
+    $("resultsBody").innerHTML = `<tr><td colspan="5">Error: ${escape(data.error || "")}</td></tr>`;
+    return;
+  }
+  renderStats(data.summary || {});
+  renderRows(data.records || []);
+}
+
+function renderStats(summary) {
+  const order = [
+    ["total","Total"],["jobs","LI jobs"],["feed","LI feed"],["tpe","TPE"],
+    ["wp_pending","WP pending"],["wp_synced","WP synced"],
+    ["wp_skipped","WP skipped"],["wp_discarded","Descartados"],["wp_failed","WP failed"],
+    ["with_country","🌎 país"],["with_city","🏙 ciudad"],
+    ["tiene_ambos","Email+Web"],["tiene_email","Email"],
+    ["tiene_web","Web"],["sin_contacto","Sin contacto"],
+  ];
+  $("stats").innerHTML = order
+    .map(([k,label]) => `<span class="pill">${label}<strong>${summary[k] ?? 0}</strong></span>`)
+    .join("");
+}
+
+async function setWpStatus(dedupeKey, newStatus, lastError) {
+  try {
+    const res = await fetch("/api/results/wp-status", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        dedupe_key: dedupeKey,
+        wp_status: newStatus,
+        wp_last_error: lastError || null,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      alert("Error: " + (data.error || "no se pudo actualizar"));
+      return false;
     }
+    return true;
+  } catch (e) {
+    alert("Error: " + String(e));
+    return false;
+  }
+}
 
-    function pickModeFilter() {
-      const mode = document.getElementById("filterMode").value;
-      return mode === "all" ? "all" : mode;
-    }
-
-    async function runSearch() {
-      if (APP_ROLE === "viewer") {
-        return;
-      }
-      const btn = document.getElementById("runBtn");
-      const keywords = document.getElementById("keywords").value.trim();
-      const mode = document.getElementById("mode").value;
-      const limit = Number(document.getElementById("limit").value || 20);
-      const daysRaw = document.getElementById("days").value;
-
-      if (!keywords) {
-        setStatus("Escribe palabras clave para buscar.", "error");
-        return;
-      }
-
-      btn.disabled = true;
-      setStatus("Ejecutando scraping. Si no hay sesión, se abrirá navegador para login...");
-
-      try {
-        const res = await fetch("/api/search", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            keywords,
-            mode,
-            limit,
-            days: daysRaw ? Number(daysRaw) : null,
-          }),
-        });
-
-        const data = await parseResponseJson(res);
-        if (!res.ok) {
-          setStatus(data.error || "Falló la búsqueda.", "error");
-          return;
-        }
-
-        const msg = `Scraping: ${data.scraped_total}. Nuevos: ${data.persisted.inserted}. ` +
-          `Actualizados/duplicados: ${data.persisted.updated}.`;
-        setStatus(msg, "ok");
-        await loadResults();
-      } catch (err) {
-        setStatus(`Error de red: ${err}`, "error");
-      } finally {
-        btn.disabled = false;
-      }
-    }
-
-    function renderCards() {
-      const holder = document.getElementById("cards");
-      const empty = document.getElementById("empty");
-      const textFilter = document.getElementById("filterText").value.trim().toLowerCase();
-      const modeFilter = document.getElementById("filterMode").value;
-
-      let rows = allRecords;
-      if (modeFilter !== "all") {
-        rows = rows.filter(r => (r.source_type || "") === modeFilter);
-      }
-
-      if (textFilter) {
-        rows = rows.filter((r) => {
-          const merged = [r.title, r.company, r.author, r.summary, r.content, r.keyword]
-            .filter(Boolean)
-            .join(" ")
-            .toLowerCase();
-          return merged.includes(textFilter);
-        });
-      }
-
-      document.getElementById("stTotal").textContent = rows.length;
-      document.getElementById("stJobs").textContent = rows.filter(r => r.source_type === "jobs").length;
-      document.getElementById("stFeed").textContent = rows.filter(r => r.source_type === "feed").length;
-
-      holder.innerHTML = "";
-      if (!rows.length) {
-        empty.style.display = "block";
-        return;
-      }
-      empty.style.display = "none";
-
-      rows.forEach((r) => {
-        const isJob = r.source_type === "jobs";
-        const title = isJob ? (r.title || "Sin título") : (r.author || "Post de LinkedIn");
-        const context = isJob ? (r.company || "Sin empresa") : (r.keyword || "Búsqueda feed");
-        const snippet = r.summary || r.content || "Sin contenido";
-        const seniority = r.seniority || "N/A";
-        const applyType = r.apply_type || "N/A";
-        const scrapedAt = (r.scraped_at || "").replace("T", " ").replace("+00:00", " UTC");
-
-        const card = document.createElement("article");
-        card.className = "result-row";
-        card.innerHTML = `
-          <div>
-            <div class="row-head">
-              <span class="pill">${r.source_type || "n/a"}</span>
-              <span>${escapeHtml(scrapedAt.slice(0, 19))}</span>
-            </div>
-            <h3 class="title-line">${escapeHtml(title)}</h3>
-            <p class="context-line">${escapeHtml(context)}</p>
-            <div class="meta-line">
-              <span class="meta-chip">seniority: ${escapeHtml(seniority)}</span>
-              <span class="meta-chip">apply: ${escapeHtml(applyType)}</span>
-            </div>
-            <p class="snippet">${escapeHtml(snippet)}</p>
-          </div>
-          <div class="actions">
-            <a class="apply" href="${r.url || '#'}" target="_blank" rel="noreferrer">Abrir</a>
-          </div>
-        `;
-        holder.appendChild(card);
-      });
-    }
-
-    function escapeHtml(value) {
-      return String(value)
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
-    }
-
-    async function loadResults() {
-      const mode = pickModeFilter();
-      const q = document.getElementById("filterText").value.trim();
-      try {
-        const res = await fetch(`/api/results?mode=${encodeURIComponent(mode)}&q=${encodeURIComponent(q)}&limit=400`);
-        const data = await parseResponseJson(res);
-        if (!res.ok) {
-          const message = data.error || "No se pudo cargar resultados.";
-          const detail = data.detail ? ` (${data.detail})` : "";
-          setStatus(`${message}${detail}`, "error");
-          return;
-        }
-        allRecords = data.records || [];
-        renderCards();
-      } catch (err) {
-        setStatus(`No se pudo cargar resultados: ${err}`, "error");
-      }
-    }
-
-    async function parseResponseJson(res) {
-      const raw = await res.text();
-      try {
-        return JSON.parse(raw);
-      } catch (_err) {
-        return { error: raw || `Respuesta no JSON (status ${res.status})` };
-      }
-    }
-
-    document.getElementById("filterText").addEventListener("input", renderCards);
-    document.getElementById("filterMode").addEventListener("change", loadResults);
-
+async function discardRow(dedupeKey) {
+  if (!confirm("¿Descartar este empleo? (wp_status=discarded — no se publica nunca)")) return;
+  if (await setWpStatus(dedupeKey, "discarded", "descartado manualmente")) {
     loadResults();
-  </script>
+  }
+}
+
+async function restoreRow(dedupeKey) {
+  if (await setWpStatus(dedupeKey, "pending", null)) {
+    loadResults();
+  }
+}
+
+async function setReviewStatus(dedupeKey, status) {
+  try {
+    const res = await fetch("/api/review/" + encodeURIComponent(dedupeKey), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ review_status: status }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      alert("Error: " + (data.error || res.status));
+      return false;
+    }
+    return true;
+  } catch (e) {
+    alert("Error: " + String(e));
+    return false;
+  }
+}
+
+async function approveRow(dk) {
+  if (await setReviewStatus(dk, "approved")) loadResults();
+}
+async function rejectRow(dk) {
+  if (!confirm("¿Rechazar este empleo? (review_status=rejected)")) return;
+  if (await setReviewStatus(dk, "rejected")) loadResults();
+}
+
+function rowActionButton(row) {
+  const dk = escape(row.dedupe_key || "");
+  const rev = row.review_status || "pending";
+  const wp = row.wp_status || "skipped";
+  const btns = [];
+
+  // Acciones de revisión humana (review_status)
+  if (rev === "published" || wp === "synced") {
+    // Ya publicada, solo permitir ver
+    return `<span style="color:var(--muted);font-size:.72rem;">publicada</span>`;
+  }
+  if (rev !== "approved") {
+    btns.push(`<button class="row-action approve" onclick="approveRow('${dk}')" title="Aprobar (review_status=approved)">✓</button>`);
+  }
+  if (rev !== "rejected") {
+    btns.push(`<button class="row-action reject" onclick="rejectRow('${dk}')" title="Rechazar (review_status=rejected)">✕</button>`);
+  }
+  // Acción técnica de wp_status (descartar permanente)
+  if (wp !== "discarded") {
+    btns.push(`<button class="row-action discard" onclick="discardRow('${dk}')" title="Marcar wp_status=discarded">⊘</button>`);
+  } else {
+    btns.push(`<button class="row-action restore" onclick="restoreRow('${dk}')" title="Restaurar wp_status=pending">↩</button>`);
+  }
+  return btns.join(" ");
+}
+
+async function syncApprovedToWp() {
+  if (!confirm("¿Publicar TODAS las ofertas aprobadas (review_status=approved) en WordPress?\nSolo se publican las que tienen contacto válido (wp_status=pending).")) return;
+  const btn = $("syncWpBtn");
+  btn.disabled = true;
+  const original = btn.textContent;
+  btn.textContent = "Sincronizando…";
+  try {
+    const res = await fetch("/api/sync-approved", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ limit: 200 }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      alert("Error: " + (data.error || res.status));
+      return;
+    }
+    const errors = (data.errors || []);
+    let msg = `Sincronización completa.\n\nProcesadas: ${data.total}\nCreadas:    ${data.created}\nActualizadas: ${data.updated}\nErrores:    ${errors.length}`;
+    if (errors.length) {
+      msg += "\n\nEjemplos de errores:\n" + errors.slice(0,3).map(e => `  - ${e.error || ''}`).join("\n");
+    }
+    alert(msg);
+    loadResults();
+  } catch (e) {
+    alert("Error: " + String(e));
+  } finally {
+    btn.disabled = false;
+    btn.textContent = original;
+  }
+}
+
+const SOURCE_LABELS = {
+  jobs: { label: "LinkedIn (jobs)", cls: "src-li" },
+  feed: { label: "LinkedIn (feed)", cls: "src-li" },
+  tpe:  { label: "TuPortalEmpleo",  cls: "src-tpe" },
+};
+
+function fmtSource(row) {
+  const meta = SOURCE_LABELS[row.source_type] || { label: row.source_type || "—", cls: "src-other" };
+  return `<span class="chip ${meta.cls}">${meta.label}</span>`;
+}
+
+function buildDisplayTitle(row) {
+  if (row.title && row.title.trim()) return row.title.trim();
+  if (row.source_type === "feed" && row.author) {
+    const snippet = (row.content || "").trim().split(/\s+/).slice(0, 12).join(" ");
+    return `Post de ${row.author}` + (snippet ? `: ${snippet}…` : "");
+  }
+  return "Sin título";
+}
+
+function buildTitleHTML(row) {
+  const display = buildDisplayTitle(row);
+  if (row.url) {
+    return `<a href="${escape(row.url)}" target="_blank" rel="noopener">${escape(display)}</a>`;
+  }
+  // Sin URL externa: mostramos como texto y permitimos toggle del contenido completo.
+  return `<span class="title-no-url" data-dk="${escape(row.dedupe_key)}" style="cursor:pointer; color: var(--text); border-bottom: 1px dashed var(--muted);" title="Click para ver/ocultar contenido completo">${escape(display)}</span>`;
+}
+
+function buildCompanyCell(row) {
+  if (row.company && row.company.trim()) {
+    return `<div>${escape(row.company)}</div>${row.company_website ? `<div class="row-meta"><a href="${escape(row.company_website)}" target="_blank" rel="noopener">${escape(safeHost(row.company_website))}</a></div>` : ""}`;
+  }
+  if (row.source_type === "feed" && row.author) {
+    return `<div class="row-meta">autor del post</div><div>${escape(row.author)}</div>`;
+  }
+  return `<div>—</div>`;
+}
+
+function buildLocationCell(row) {
+  const city = row.city ? escape(row.city) : "";
+  const state = row.state ? escape(row.state) : "";
+  const country = row.country ? escape(row.country) : "";
+
+  if (city || state || country) {
+    const main = city || state || country;
+    const sub = [state, country].filter(Boolean).filter(s => s !== main).join(", ");
+    return `
+      <div style="font-weight:600;">${main}</div>
+      ${sub ? `<div class="row-meta">${sub}</div>` : ""}
+      ${row.work_mode ? `<div class="row-meta">${escape(row.work_mode)}</div>` : ""}
+    `;
+  }
+  if (row.location_text) {
+    return `<div class="row-meta">${escape(row.location_text)}</div>`;
+  }
+  return `<div class="row-meta" style="opacity:0.5;">—</div>`;
+}
+
+function renderRows(rows) {
+  if (!rows.length) {
+    $("resultsBody").innerHTML = `<tr><td colspan="8" style="color:var(--muted);">Sin resultados con esos filtros.</td></tr>`;
+    return;
+  }
+  $("resultsBody").innerHTML = rows.map(row => `
+    <tr data-dk="${escape(row.dedupe_key)}">
+      <td>
+        <div>${buildTitleHTML(row)}</div>
+        <div class="row-meta">
+          ${row.job_type_guess ? escape(row.job_type_guess) : ""}
+          ${row.seniority ? ` · ${escape(row.seniority)}` : ""}
+          ${row.is_remote && !row.work_mode ? " · 🌐 remoto" : ""}
+        </div>
+        <div class="row-content-full" data-dk="${escape(row.dedupe_key)}" style="display:none; margin-top:8px; padding:8px 10px; background: var(--surface-2); border-radius:8px; font-size:0.82rem; white-space:pre-wrap; max-height:300px; overflow:auto; color: var(--muted);">${escape(row.content || "(sin contenido)")}</div>
+      </td>
+      <td>${buildCompanyCell(row)}</td>
+      <td>${buildLocationCell(row)}</td>
+      <td>${fmtSource(row)}</td>
+      <td>${fmtContact(row)}</td>
+      <td>${fmtWp(row)}</td>
+      <td>${fmtSeen(row)}</td>
+      <td>${rowActionButton(row)}</td>
+    </tr>
+  `).join("");
+
+  // Toggle inline content para registros sin URL externa.
+  document.querySelectorAll(".title-no-url").forEach(el => {
+    el.addEventListener("click", (e) => {
+      const dk = e.currentTarget.dataset.dk;
+      const block = document.querySelector(`.row-content-full[data-dk="${dk}"]`);
+      if (block) block.style.display = block.style.display === "none" ? "block" : "none";
+    });
+  });
+}
+
+async function startSearch() {
+  const sources = [];
+  if ($("srcLinkedin").checked) sources.push("linkedin");
+  if ($("srcTpe").checked) sources.push("tpe");
+  if (!sources.length) {
+    alert("Selecciona al menos una fuente (LinkedIn / TuPortalEmpleo).");
+    return;
+  }
+  const body = {
+    keywords: $("keywords").value,
+    sources: sources,
+    linkedin_mode: $("linkedinMode").value,
+    limit: parseInt($("limit").value || "20", 10),
+    days: $("days").value ? parseInt($("days").value, 10) : null,
+    exclude_keywords: $("excludeKeywords").value,
+    languages: $("languages").value,
+  };
+  const res = await fetch("/api/search/start", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(body),
+  });
+  const data = await res.json();
+  if (!res.ok) { alert("Error: " + (data.error || "")); return; }
+  pollProgress(data.job_id);
+}
+
+async function pollProgress(jobId) {
+  if (pollTimer) clearInterval(pollTimer);
+  $("progress").style.display = "block";
+  $("runBtn") && ($("runBtn").disabled = true);
+
+  let lastReloadAt = 0;
+
+  pollTimer = setInterval(async () => {
+    const res = await fetch(`/api/search/status/${jobId}`);
+    const job = await res.json();
+    if (!res.ok) { clearInterval(pollTimer); return; }
+    const p = job.progress || {};
+    const pipeline = p.pipeline || {};
+    const inserted = (p.persisted||{}).inserted ?? 0;
+    const updated = (p.persisted||{}).updated ?? 0;
+    let banner = "";
+    if (job.status === "success" && inserted === 0 && updated > 0) {
+      banner = `<div class="row-meta" style="color: var(--warn); margin-top:8px;">⚠ Todos los empleos del scrape <strong>ya estaban en la BD</strong> (se refrescó last_seen_at de ${updated}). El dashboard no sube porque no hay registros nuevos.</div>`;
+    } else if (pipeline.wp_pending === 0 && pipeline.wp_skipped > 0 && job.status === "success") {
+      banner = `<div class="row-meta" style="color: var(--warn); margin-top:8px;">Todos los empleos detectados quedaron en <strong>skipped</strong>. Filtra la tabla por <strong>WP: skipped</strong> o <strong>WP: todos</strong> para verlos.</div>`;
+    }
+    $("progress").innerHTML = `
+      <div>Estado: <strong>${escape(job.status)}</strong></div>
+      <div>Scrapeados: <strong>${p.scraped_total ?? 0}</strong> · Aceptados: <strong>${p.matched_total ?? 0}</strong></div>
+      <div>Pipeline WPJM → pending: <strong>${pipeline.wp_pending ?? 0}</strong> · skipped: <strong>${pipeline.wp_skipped ?? 0}</strong></div>
+      <div class="row-meta">Contacto → email: ${pipeline.tiene_email ?? 0} · web: ${pipeline.tiene_web ?? 0} · ambos: ${pipeline.tiene_ambos ?? 0} · sin: ${pipeline.sin_contacto ?? 0}</div>
+      <div style="margin-top:6px; padding:6px 8px; background: var(--surface-2); border-radius:8px;">
+        💾 BD → <strong style="color: var(--ok);">${inserted} nuevos</strong> · <strong>${updated} refrescados</strong>
+      </div>
+      <div class="row-meta">${escape(p.last_item || "")}</div>
+      ${banner}
+    `;
+
+    // Refresca tabla cada ~5s mientras corre, para ver filas en vivo.
+    const now = Date.now();
+    if (job.status === "running" && now - lastReloadAt > 5000) {
+      lastReloadAt = now;
+      loadResults();
+    }
+
+    if (job.status === "success" || job.status === "error") {
+      clearInterval(pollTimer);
+      $("runBtn") && ($("runBtn").disabled = false);
+      loadResults();
+    }
+  }, 1500);
+}
+
+// ---- LinkedIn session ----
+let loginPollTimer = null;
+
+function setSession(state, label, meta) {
+  const dot = $("sessionDot");
+  dot.className = "session-dot " + state;
+  $("sessionLabel").textContent = label;
+  $("sessionMeta").textContent = meta || "";
+}
+
+async function refreshSessionStatus() {
+  try {
+    const res = await fetch("/api/linkedin/session/status");
+    const data = await res.json();
+    const btn = $("loginBtn");
+    const active = data.active_login;
+
+    if (active && (active.status === "running" || active.status === "queued" || active.status === "waiting_user")) {
+      setSession(
+        "busy",
+        active.status === "waiting_user" ? "Esperando login manual" : "Lanzando navegador…",
+        active.message || "Mira la ventana de Chromium que se abrió."
+      );
+      if (btn) { btn.disabled = true; btn.textContent = "Esperando login…"; btn.style.display = ""; }
+      pollLoginJob(active.job_id);
+      return;
+    }
+
+    if (data.exists) {
+      setSession(
+        "ok",
+        "LinkedIn: sesión guardada",
+        `archivo: ${data.path.split("/").slice(-2).join("/")} · hace ${data.age_human}`
+      );
+      if (btn) { btn.disabled = false; btn.textContent = "Renovar sesión"; btn.style.display = ""; }
+    } else {
+      setSession(
+        "danger",
+        "LinkedIn: sin sesión",
+        "No hay storage_state. Inicia sesión para que se guarden las cookies."
+      );
+      if (btn) { btn.disabled = false; btn.textContent = "Iniciar sesión en LinkedIn"; btn.style.display = ""; }
+    }
+  } catch (err) {
+    setSession("warn", "No se pudo consultar el estado", String(err));
+  }
+}
+
+async function startLogin() {
+  const btn = $("loginBtn");
+  if (btn) { btn.disabled = true; btn.textContent = "Lanzando…"; }
+  try {
+    const res = await fetch("/api/linkedin/session/login", { method: "POST" });
+    const data = await res.json();
+    if (!res.ok) {
+      alert("Error: " + (data.error || "no se pudo iniciar"));
+      refreshSessionStatus();
+      return;
+    }
+    setSession("busy", "Lanzando navegador…", "Cuando se abra Chromium, inicia sesión normalmente.");
+    pollLoginJob(data.job_id);
+  } catch (err) {
+    alert("Error: " + String(err));
+    refreshSessionStatus();
+  }
+}
+
+function pollLoginJob(jobId) {
+  if (loginPollTimer) clearInterval(loginPollTimer);
+  loginPollTimer = setInterval(async () => {
+    const res = await fetch(`/api/linkedin/session/login/${jobId}`);
+    if (!res.ok) { clearInterval(loginPollTimer); return; }
+    const job = await res.json();
+
+    if (job.status === "running" || job.status === "queued") {
+      setSession("busy", "Abriendo navegador…", job.message || "");
+    } else if (job.status === "waiting_user") {
+      setSession("busy", "Esperando que inicies sesión", job.message || "Completa el login en la ventana de Chromium.");
+    } else if (job.status === "success") {
+      clearInterval(loginPollTimer);
+      refreshSessionStatus();
+    } else if (job.status === "error") {
+      clearInterval(loginPollTimer);
+      setSession("danger", "Error en login", job.error || job.message || "");
+      const btn = $("loginBtn");
+      if (btn) { btn.disabled = false; btn.textContent = "Reintentar login"; }
+    }
+  }, 1500);
+}
+
+{% if app_role != 'viewer' %}
+$("loginBtn") && $("loginBtn").addEventListener("click", startLogin);
+{% endif %}
+
+["filterMode","filterWpStatus","filterContact","filterReview","onlyNewToday"].forEach(id => $(id).addEventListener("change", loadResults));
+$("search").addEventListener("input", () => { clearTimeout(window.__t); window.__t = setTimeout(loadResults, 250); });
+$("reloadBtn").addEventListener("click", loadResults);
+$("syncWpBtn").addEventListener("click", syncApprovedToWp);
+{% if app_role != 'viewer' %}
+$("runBtn").addEventListener("click", startSearch);
+{% endif %}
+
+(async () => {
+  // pick up any in-flight job on refresh
+  const res = await fetch("/api/search/active");
+  const data = await res.json();
+  if (data.active && data.active.job_id) pollProgress(data.active.job_id);
+  refreshSessionStatus();
+  loadResults();
+})();
+</script>
 </body>
 </html>

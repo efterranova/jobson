@@ -32,9 +32,13 @@ def load_settings() -> Settings:
     sessions_dir = ROOT_DIR / "sessions"
     logs_dir = ROOT_DIR / "logs"
 
-    data_dir.mkdir(parents=True, exist_ok=True)
-    sessions_dir.mkdir(parents=True, exist_ok=True)
-    logs_dir.mkdir(parents=True, exist_ok=True)
+    # En entornos serverless (Vercel) el FS es read-only excepto /tmp.
+    # Si APP_ROLE=viewer, los dirs son opcionales — el viewer solo lee de Supabase.
+    for d in (data_dir, sessions_dir, logs_dir):
+        try:
+            d.mkdir(parents=True, exist_ok=True)
+        except OSError:
+            pass
 
     sqlite_env = os.getenv("SQLITE_PATH", "").strip()
     sqlite_path = Path(sqlite_env) if sqlite_env else data_dir / "jobson.db"

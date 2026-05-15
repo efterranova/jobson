@@ -214,6 +214,7 @@ def run_publish_wp(settings: Settings, args: argparse.Namespace) -> None:
         runs_dir.mkdir(parents=True, exist_ok=True)
         manifest_path = runs_dir / f"{test_batch_id}.json"
 
+    wp_filter = None if args.wp_filter == "all" else args.wp_filter
     summary = publisher.publish_batch(
         limit=max(1, args.limit),
         user_status_filter=user_filter,
@@ -221,6 +222,7 @@ def run_publish_wp(settings: Settings, args: argparse.Namespace) -> None:
         source_type=args.wp_source_type,
         test_batch_id=test_batch_id,
         review_status=args.review,
+        wp_status=wp_filter,
     )
 
     # Si se usó --review approved (o se pasó --mark-published explícito), marca como publicadas
@@ -415,6 +417,17 @@ def main() -> None:
         type=str,
         choices=["pending", "approved", "rejected", "published"],
         help="Filtra por review_status antes de publicar. Recomendado: 'approved'.",
+    )
+    parser.add_argument(
+        "--wp-filter",
+        type=str,
+        choices=["pending", "synced", "failed", "all"],
+        default="pending",
+        help=(
+            "Filtra qué registros enviar al WP por su wp_status actual. "
+            "'pending' (default) = solo nuevos; 'synced' = re-sincronizar publicados "
+            "(útil para retro-aplicar cambios como featured image); 'all' = todos."
+        ),
     )
     parser.add_argument(
         "--mark-published",

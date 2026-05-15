@@ -135,6 +135,26 @@ KEYWORD_TO_CATEGORY: dict[str, str] = {
 }
 
 
+# Featured image por categoría (Unsplash). El mu-plugin sideloadea cada URL
+# UNA sola vez a la media library de WP (cache por hash en la opción
+# jobson_image_cache) y reusa el attachment_id. Si la categoría no tiene
+# imagen mapeada, cae a 'otros-categoria-general'.
+_UNSPLASH_PARAMS = "?w=1200&q=80&auto=format&fit=crop"
+
+CATEGORY_FEATURED_IMAGE: dict[str, str] = {
+    "marketing-publicidad-y-medios":                        f"https://images.unsplash.com/photo-1533750349088-cd871a92f312{_UNSPLASH_PARAMS}",
+    "tecnologia-de-la-informacion-y-software":              f"https://images.unsplash.com/photo-1607799279861-4dd421887fb3{_UNSPLASH_PARAMS}",
+    "banca-y-servicios-financieros":                        f"https://images.unsplash.com/photo-1633158829585-23ba8f7c8caf{_UNSPLASH_PARAMS}",
+    "servicios-profesionales-auditoria-contabilidad-legal": f"https://images.unsplash.com/photo-1554224154-26032ffc0d07{_UNSPLASH_PARAMS}",
+    "servicios-administrativos-y-soporte-de-oficina":       f"https://images.unsplash.com/photo-1487017159836-4e23ece2e4cf{_UNSPLASH_PARAMS}",
+    "recursos-humanos-y-reclutamiento":                     f"https://images.unsplash.com/photo-1582213782179-e0d53f98f2ca{_UNSPLASH_PARAMS}",
+    "operaciones-y-gestion-de-proyectos":                   f"https://images.unsplash.com/photo-1531403009284-440f080d1e12{_UNSPLASH_PARAMS}",
+    "retail-e-commerce-y-atencion-al-cliente":              f"https://images.unsplash.com/photo-1521566652839-697aa473761a{_UNSPLASH_PARAMS}",
+    "diseno-grafico-y-multimedia":                          f"https://images.unsplash.com/photo-1626785774573-4b799315345d{_UNSPLASH_PARAMS}",
+    "otros-categoria-general":                              f"https://images.unsplash.com/photo-1715059448930-9dff21725605{_UNSPLASH_PARAMS}",
+}
+
+
 # ES → EN equivalente (mismo concepto, otro idioma)
 ES_TO_EN: dict[str, str] = {
     "marketing-publicidad-y-medios":                   "marketing-advertising-and-media",
@@ -421,6 +441,22 @@ def pick_job_types(record: dict[str, Any], lang: str) -> list[str]:
             return [JOB_TYPE_BY_LANG[lang][key]]
 
     return [JOB_TYPE_BY_LANG[lang]["full_time"]]
+
+
+def pick_featured_image_url(categories: list[str], lang: str = "es") -> str:
+    """URL de Unsplash para la primera categoría que matchee.
+
+    Si las categorías vienen en EN, se mapean de vuelta a ES vía ES_TO_EN.
+    Si ninguna matchea, devuelve la imagen del fallback ('otros').
+    """
+    _ = lang  # mapa de imágenes es por concepto, no por idioma
+    en_to_es = {v: k for k, v in ES_TO_EN.items()}
+    for cat in categories or []:
+        es_slug = en_to_es.get(cat, cat)
+        url = CATEGORY_FEATURED_IMAGE.get(es_slug)
+        if url:
+            return url
+    return CATEGORY_FEATURED_IMAGE["otros-categoria-general"]
 
 
 def is_remote(record: dict[str, Any]) -> bool:

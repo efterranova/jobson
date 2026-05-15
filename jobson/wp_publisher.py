@@ -24,7 +24,11 @@ from requests.auth import HTTPBasicAuth
 
 from jobson.ai_normalizer import AINormalizer
 from jobson.storage.base import BaseRepository
-from jobson.wp_normalize import JOB_TYPE_BY_LANG, normalize_record as _normalize
+from jobson.wp_normalize import (
+    JOB_TYPE_BY_LANG,
+    normalize_record as _normalize,
+    pick_featured_image_url,
+)
 
 LOG = logging.getLogger(__name__)
 
@@ -205,6 +209,12 @@ def record_to_payload(
             "job-categories": norm["categories"],
         },
         "language": norm["language"],
+        # Featured image: si el record trajo logo de la empresa, úsalo; si no,
+        # cae a la imagen genérica por categoría (mu-plugin la sideloada 1 vez).
+        "featured_image_url": (
+            (record.get("company_logo_url") or "").strip()
+            or pick_featured_image_url(norm["categories"], norm["language"])
+        ),
     }
     if test_batch_id:
         payload["meta"]["_jobson_test_batch"] = test_batch_id

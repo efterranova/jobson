@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name: JobsOn REST Bridge for WP Job Manager
- * Description: Expone meta WP Job Manager + Cariera al REST y añade upsert idempotente por dedupe_key. Asigna taxonomías por slug (no crea nuevas) y crea/matchea employer users por display_name para que el job aparezca con la empresa correcta.
- * Version:     1.2.0
+ * Description: Expone meta WP Job Manager + Cariera al REST y añade upsert idempotente por dedupe_key. Asigna taxonomías por slug (no crea nuevas), crea/matchea employer users por display_name, y opcionalmente sideloadea una featured image por URL con cache en option `jobson_image_cache`.
+ * Version:     1.3.0
  * Author:      JobsOn
  *
  * Instala este archivo en wp-content/mu-plugins/jobson-rest.php
@@ -150,6 +150,57 @@ function jobson_find_or_create_employer(string $name): int {
     update_user_meta($user_id, '_jobson_source', 'linkedin');
 
     return (int) $user_id;
+}
+
+/**
+ * Sideloadea una URL a la media library y devuelve el attachment_id.
+ * Usa option `jobson_image_cache` (array sha1(url) => attachment_id) para
+ * evitar re-descargar la misma imagen en cada upsert. Devuelve 0 si falla.
+ */
+function jobson_sideload_image(string $url): int {
+    $url = trim($url);
+    if ($url === '' || !preg_match('#^https?://#i', $url)) return 0;
+
+    $cache = get_option('jobson_image_cache', []);
+    if (!is_array($cache)) $cache = [];
+    $key = sha1($url);
+
+    if (isset($cache[$key]) && (int) $cache[$key] > 0) {
+        $aid = (int) $cache[$key];
+        // Verifica que el attachment siga existiendo (alguien lo puede haber borrado)
+        if (get_post_status($aid)) {
+            return $aid;
+        }
+        unset($cache[$key]); // cache stale → re-sideload
+    }
+
+    require_once ABSPATH . 'wp-admin/includes/media.php';
+    require_once ABSPATH . 'wp-admin/includes/file.php';
+    require_once ABSPATH . 'wp-admin/includes/image.php';
+
+    $tmp = download_url($url, 30);
+    if (is_wp_error($tmp)) {
+        error_log('[jobson] download_url falló: ' . $tmp->get_error_message() . ' url=' . $url);
+        return 0;
+    }
+
+    // Forzamos extensión .jpg si la URL no la trae (Unsplash sirve image/jpeg sin ext)
+    $name = basename(parse_url($url, PHP_URL_PATH) ?: '');
+    if ($name === '' || !preg_match('/\.(jpe?g|png|webp|gif)$/i', $name)) {
+        $name = 'jobson-' . substr($key, 0, 12) . '.jpg';
+    }
+
+    $file_array = ['name' => $name, 'tmp_name' => $tmp];
+    $aid = media_handle_sideload($file_array, 0, null);
+    if (is_wp_error($aid)) {
+        @unlink($tmp);
+        error_log('[jobson] media_handle_sideload falló: ' . $aid->get_error_message() . ' url=' . $url);
+        return 0;
+    }
+
+    $cache[$key] = (int) $aid;
+    update_option('jobson_image_cache', $cache, false);
+    return (int) $aid;
 }
 
 function jobson_find_by_dedupe(string $dedupe_key): int {
@@ -309,13 +360,25 @@ function jobson_rest_upsert(WP_REST_Request $req) {
         delete_post_meta($post_id, '_jobson_unmatched_terms');
     }
 
+    // Featured image: sideload la URL si vino en el payload y el post aún no tiene thumbnail.
+    $featured_url = isset($params['featured_image_url']) ? trim((string) $params['featured_image_url']) : '';
+    $attachment_id = 0;
+    if ($featured_url !== '') {
+        $attachment_id = jobson_sideload_image($featured_url);
+        if ($attachment_id) {
+            set_post_thumbnail($post_id, $attachment_id);
+            update_post_meta($post_id, '_jobson_featured_image_url', esc_url_raw($featured_url));
+        }
+    }
+
     return rest_ensure_response([
-        'action'      => $action,
-        'id'          => $post_id,
-        'link'        => get_permalink($post_id),
-        'edit'        => get_edit_post_link($post_id, 'raw'),
-        'status'      => get_post_status($post_id),
-        'unmatched'   => $unmatched,
-        'employer_id' => $employer_id ?: null,
+        'action'        => $action,
+        'id'            => $post_id,
+        'link'          => get_permalink($post_id),
+        'edit'          => get_edit_post_link($post_id, 'raw'),
+        'status'        => get_post_status($post_id),
+        'unmatched'     => $unmatched,
+        'employer_id'   => $employer_id ?: null,
+        'attachment_id' => $attachment_id ?: null,
     ]);
 }

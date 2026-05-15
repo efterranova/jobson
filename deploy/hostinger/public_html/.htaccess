@@ -1,0 +1,6 @@
+# Security hardening (Hostinger Apache)
+Options -Indexes
+
+<FilesMatch "^(\.env|config\.php|composer\.(json|lock)|package\.json|package-lock\.json)$">
+  Require all denied
+</FilesMatch>

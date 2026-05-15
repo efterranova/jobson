@@ -1,0 +1,27 @@
+.venv
+__pycache__
+*.pyc
+.git
+.DS_Store
+
+# Datos locales y artefactos de build
+data/
+sessions/
+logs/
+dist/
+deploy/
+
+# Local-only modules (scraper de Playwright) — el modo viewer no los necesita
+jobson/scraper/
+jobson/service.py
+jobson/web/search_jobs.py
+
+# Tests y caches
+.pytest_cache
+.mypy_cache
+.ruff_cache
+
+# Local-only docs
+README.md
+scripts_build_hostinger.sh
+requirements-local.txt

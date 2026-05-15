@@ -1,0 +1,1143 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>JobsOn Viewer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f5f8fc;
+      --card: #ffffff;
+      --soft: #f2f7ff;
+      --text: #11243f;
+      --muted: #60738e;
+      --line: #d9e5f4;
+      --brand: #1567c4;
+      --brand-2: #2aa6ff;
+      --success: #238f59;
+      --danger: #b33a2f;
+      --shadow: 0 24px 54px rgba(12, 41, 78, 0.12);
+      --glow: radial-gradient(circle at 12% -2%, rgba(72, 165, 255, 0.22), transparent 36%),
+              radial-gradient(circle at 88% -16%, rgba(20, 111, 255, 0.2), transparent 38%),
+              linear-gradient(180deg, #f4f8ff 0%, #f7fbff 100%);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Space Grotesk", sans-serif;
+      color: var(--text);
+      background: var(--glow);
+    }
+
+    .app {
+      width: min(1320px, 96vw);
+      margin: 24px auto 34px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .hero {
+      border: 1px solid #d8e4f6;
+      border-radius: 22px;
+      background: linear-gradient(120deg, #ffffff 0%, #f2f7ff 52%, #ecf5ff 100%);
+      box-shadow: var(--shadow);
+      padding: 22px;
+      display: grid;
+      grid-template-columns: 1.4fr .8fr;
+      gap: 16px;
+      align-items: center;
+    }
+
+    .headline {
+      margin: 0;
+      font-size: clamp(1.4rem, 2.8vw, 2rem);
+      line-height: 1.1;
+      letter-spacing: .02em;
+    }
+
+    .headline em {
+      font-family: "Instrument Serif", serif;
+      font-style: italic;
+      font-weight: 400;
+      color: #2d6fc2;
+    }
+
+    .hero p {
+      margin: 8px 0 0;
+      color: var(--muted);
+      max-width: 72ch;
+    }
+
+    .hero-tools {
+      display: grid;
+      gap: 8px;
+      justify-items: end;
+    }
+
+    .hero-nav {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .hero-nav a {
+      text-decoration: none;
+      border: 1px solid #cfe0f4;
+      border-radius: 10px;
+      background: #f2f8ff;
+      color: #2b5687;
+      padding: 7px 10px;
+      font-size: .8rem;
+      font-weight: 700;
+    }
+
+    .status {
+      border: 1px dashed #c8d8ef;
+      background: #f9fcff;
+      border-radius: 12px;
+      padding: 12px;
+      font-size: .88rem;
+      color: #5e6f89;
+      min-height: 64px;
+      display: flex;
+      align-items: center;
+    }
+
+    .status.ok { color: var(--success); }
+    .status.error { color: var(--danger); }
+
+    .profile-glance {
+      border: 1px solid #d5e4f7;
+      border-radius: 18px;
+      background: linear-gradient(135deg, #ffffff 0%, #f1f8ff 55%, #e9f4ff 100%);
+      box-shadow: var(--shadow);
+      padding: 14px;
+      display: grid;
+      grid-template-columns: 1.1fr .9fr auto;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .glance-title {
+      margin: 0;
+      font-size: 1rem;
+      color: #1f4f86;
+      letter-spacing: .02em;
+    }
+
+    .glance-text {
+      margin: 4px 0 0;
+      color: #5d7899;
+      font-size: .84rem;
+      line-height: 1.35;
+    }
+
+    .glance-meta {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .gm {
+      border: 1px solid #d5e3f6;
+      border-radius: 10px;
+      background: #f7fbff;
+      padding: 8px;
+    }
+
+    .gm .k {
+      font-size: .68rem;
+      color: #6783a5;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      margin-bottom: 2px;
+    }
+
+    .gm .v {
+      font-size: .82rem;
+      color: #23466f;
+      line-height: 1.3;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .profile-cta {
+      text-decoration: none;
+      border: 1px solid #c8dcf5;
+      border-radius: 12px;
+      background: linear-gradient(126deg, #1669c8 0%, #2fa8ff 100%);
+      color: #fff;
+      padding: 10px 14px;
+      font-size: .84rem;
+      font-weight: 700;
+      text-align: center;
+      min-width: 190px;
+      box-shadow: 0 10px 18px rgba(27, 114, 199, 0.24);
+    }
+
+    .panel {
+      border: 1px solid #d8e4f6;
+      border-radius: 18px;
+      background: var(--card);
+      box-shadow: var(--shadow);
+      padding: 14px;
+    }
+
+    .filters {
+      display: grid;
+      grid-template-columns: 1.2fr .74fr .74fr .8fr auto;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    input, select, button {
+      font: inherit;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      width: 100%;
+    }
+
+    input, select {
+      background: var(--soft);
+      color: var(--text);
+      padding: 10px 11px;
+    }
+
+    button {
+      border: none;
+      background: linear-gradient(126deg, #1567c4 0%, #35a9ff 100%);
+      color: white;
+      font-weight: 700;
+      padding: 10px 14px;
+      cursor: pointer;
+      width: auto;
+      min-width: 130px;
+      box-shadow: 0 10px 18px rgba(27, 114, 199, 0.24);
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 9px;
+      margin-bottom: 14px;
+    }
+
+    .stat {
+      border: 1px solid #dbe7f5;
+      border-radius: 12px;
+      background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+      padding: 10px;
+    }
+
+    .stat .k {
+      color: #6a7d98;
+      font-size: .75rem;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+    }
+
+    .stat .v {
+      margin-top: 4px;
+      font-size: 1.2rem;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .results-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .result-row {
+      border: 1px solid #dce7f5;
+      border-radius: 14px;
+      background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+      padding: 12px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      align-items: start;
+      transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+      cursor: pointer;
+    }
+
+    .result-row:hover {
+      transform: translateY(-1px);
+      border-color: #bfd7f2;
+      box-shadow: 0 12px 24px rgba(32, 92, 150, 0.12);
+    }
+
+    .row-head {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin-bottom: 5px;
+      color: #5f7392;
+      font-size: .73rem;
+    }
+
+    .pill {
+      font-size: .64rem;
+      font-weight: 700;
+      border-radius: 999px;
+      padding: 4px 8px;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+      border: 1px solid #d4e5f8;
+      background: #eff6ff;
+      color: #1f5ea3;
+    }
+
+    .pill.keyword {
+      border-color: #d5d9fb;
+      background: #f3f4ff;
+      color: #3f49a9;
+    }
+
+    .title-line {
+      margin: 0;
+      line-height: 1.25;
+      font-size: 1rem;
+      font-weight: 700;
+    }
+
+    .context-line {
+      margin: 3px 0 0;
+      color: #60758f;
+      font-size: .85rem;
+    }
+
+    .meta-line {
+      margin: 8px 0 0;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      font-size: .75rem;
+    }
+
+    .meta-chip {
+      border: 1px solid #d5e4f4;
+      border-radius: 999px;
+      background: #f6fbff;
+      color: #37516f;
+      padding: 2px 8px;
+    }
+
+    .snippet {
+      margin: 8px 0 0;
+      color: #274161;
+      font-size: .84rem;
+      line-height: 1.45;
+      max-height: 72px;
+      overflow: auto;
+    }
+
+    .actions {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      min-width: 148px;
+      align-items: stretch;
+    }
+
+    .apply {
+      text-align: center;
+      text-decoration: none;
+      border-radius: 8px;
+      color: #fff;
+      background: #1a6fca;
+      font-size: .78rem;
+      font-weight: 700;
+      padding: 7px 10px;
+    }
+
+    .track-btn {
+      border: 1px solid #d5e2f4;
+      border-radius: 8px;
+      background: #f8fbff;
+      color: #284f7f;
+      padding: 6px 8px;
+      font-size: .74rem;
+      font-weight: 700;
+      cursor: pointer;
+      width: 100%;
+    }
+
+    .delete-btn {
+      border: 1px solid #f1c4be;
+      border-radius: 8px;
+      background: #fff4f2;
+      color: #9f352c;
+      padding: 6px 8px;
+      font-size: .74rem;
+      font-weight: 700;
+      cursor: pointer;
+      width: 100%;
+    }
+
+    .delete-btn:hover {
+      background: #ffece9;
+      border-color: #e7aaa2;
+    }
+
+    .track-btn.active {
+      border-color: #1a6fca;
+      background: #e7f2ff;
+      color: #0f4f97;
+    }
+
+    .status-interest { border-color: #c9eed7; background: #effcf4; color: #1d6e43; }
+    .status-no-interest { border-color: #f4d4d1; background: #fff4f3; color: #9e2f2b; }
+    .status-applied { border-color: #d8d6fd; background: #f3f2ff; color: #3f3b97; }
+
+    .empty {
+      display: none;
+      border: 1px dashed #cfdef2;
+      border-radius: 14px;
+      padding: 24px;
+      text-align: center;
+      color: #647996;
+      background: #fbfdff;
+    }
+
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(8, 23, 43, 0.52);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 70;
+      backdrop-filter: blur(4px);
+    }
+
+    .modal.open { display: flex; }
+
+    .modal-card {
+      width: min(980px, 96vw);
+      max-height: 88vh;
+      overflow: auto;
+      border-radius: 18px;
+      border: 1px solid #d4e4f7;
+      background: linear-gradient(180deg, #ffffff 0%, #f8fcff 100%);
+      box-shadow: 0 30px 70px rgba(8, 34, 67, 0.32);
+      padding: 16px;
+    }
+
+    .modal-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 10px;
+      position: sticky;
+      top: -16px;
+      padding: 10px 0;
+      background: linear-gradient(180deg, #ffffff 0%, rgba(255, 255, 255, .9) 100%);
+      backdrop-filter: blur(4px);
+    }
+
+    .modal-title {
+      margin: 0;
+      font-size: 1.1rem;
+      line-height: 1.24;
+    }
+
+    .close {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      border: 1px solid #d5e3f4;
+      background: #f2f7ff;
+      color: #35557e;
+      font-size: 1.2rem;
+      cursor: pointer;
+      box-shadow: none;
+      min-width: 0;
+      padding: 0;
+    }
+
+    .detail-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .field {
+      border: 1px solid #d5e3f5;
+      border-radius: 10px;
+      padding: 9px;
+      background: #f9fcff;
+    }
+
+    .field .k {
+      font-size: .68rem;
+      color: #667e9f;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      margin-bottom: 3px;
+    }
+
+    .field .v {
+      font-size: .86rem;
+      color: #1d3555;
+      word-break: break-word;
+    }
+
+    .detail-block {
+      border: 1px solid #d5e3f5;
+      border-radius: 10px;
+      padding: 10px;
+      background: #ffffff;
+      margin-top: 8px;
+    }
+
+    .detail-block h4 {
+      margin: 0 0 6px;
+      font-size: .8rem;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      color: #647c9a;
+    }
+
+    .detail-block .txt {
+      margin: 0;
+      font-size: .9rem;
+      color: #1f3b5f;
+      line-height: 1.45;
+      white-space: pre-wrap;
+    }
+
+    .all-fields {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 6px;
+      margin-top: 4px;
+    }
+
+    .all-field-row {
+      border: 1px solid #d6e4f6;
+      border-radius: 8px;
+      background: #fbfdff;
+      padding: 7px 9px;
+      display: grid;
+      grid-template-columns: 190px 1fr;
+      gap: 8px;
+      align-items: start;
+    }
+
+    .all-field-key {
+      font-size: .72rem;
+      color: #5f7898;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      font-weight: 700;
+    }
+
+    .all-field-value {
+      font-size: .84rem;
+      color: #1f3b5f;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .raw-json {
+      margin: 0;
+      font-size: .78rem;
+      line-height: 1.35;
+      color: #2d4668;
+      background: #f4f8ff;
+      border: 1px solid #d6e4f6;
+      border-radius: 8px;
+      padding: 10px;
+      overflow: auto;
+      max-height: 260px;
+      white-space: pre;
+    }
+
+    @media (max-width: 1080px) {
+      .hero { grid-template-columns: 1fr; }
+      .hero-tools { justify-items: start; }
+      .hero-nav { justify-content: flex-start; }
+      .profile-glance { grid-template-columns: 1fr; }
+      .filters { grid-template-columns: 1fr 1fr; }
+      .stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .result-row { grid-template-columns: 1fr; }
+      .actions { min-width: 0; }
+      button { width: 100%; }
+      .detail-grid { grid-template-columns: 1fr; }
+      .all-field-row { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 640px) {
+      .filters { grid-template-columns: 1fr; }
+      .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="hero">
+      <div>
+        <h1 class="headline">JobsOn <em>Oportunidades</em></h1>
+        <p>Revisa vacantes y publicaciones encontradas por tu scraper local, marca seguimiento y toma decisiones en minutos.</p>
+      </div>
+      <div class="hero-tools">
+        <nav class="hero-nav">
+          <a href="index.html">Oportunidades</a>
+          <a href="profile.html">Perfil IA</a>
+        </nav>
+        <div id="status" class="status">Listo.</div>
+      </div>
+    </section>
+
+    <section class="profile-glance" id="profileGlance">
+      <div>
+        <h2 class="glance-title">Tu perfil profesional y estrategia IA</h2>
+        <p id="profileState" class="glance-text">Cargando resumen de perfil...</p>
+      </div>
+      <div class="glance-meta">
+        <div class="gm">
+          <div class="k">Perfil</div>
+          <div id="profileName" class="v">-</div>
+        </div>
+        <div class="gm">
+          <div class="k">Última actualización</div>
+          <div id="profileUpdated" class="v">-</div>
+        </div>
+        <div class="gm">
+          <div class="k">Objetivo profesional</div>
+          <div id="profileRoles" class="v">-</div>
+        </div>
+        <div class="gm">
+          <div class="k">Brief IA</div>
+          <div id="profileBrief" class="v">-</div>
+        </div>
+      </div>
+      <a id="profileAction" class="profile-cta" href="profile.html">Completar Perfil</a>
+    </section>
+
+    <section class="panel">
+      <div class="filters">
+        <input id="filterText" placeholder="Buscar en título, empresa, autor, resumen..." />
+        <select id="filterKeyword">
+          <option value="all">Todas las keywords</option>
+        </select>
+        <select id="filterMode">
+          <option value="all">Todos</option>
+          <option value="jobs">Solo jobs</option>
+          <option value="feed">Solo feed</option>
+        </select>
+        <select id="filterStatus">
+          <option value="all">Todos los estados</option>
+          <option value="seguimiento">Solo seguimiento</option>
+          <option value="me_interesa">Me interesa</option>
+          <option value="ya_aplique">Ya apliqué</option>
+          <option value="no_me_interesa">No me interesa</option>
+        </select>
+        <button id="reloadBtn" type="button">Actualizar</button>
+      </div>
+
+      <section class="stats">
+        <div class="stat"><div class="k">Total</div><div id="stTotal" class="v">0</div></div>
+        <div class="stat"><div class="k">Jobs</div><div id="stJobs" class="v">0</div></div>
+        <div class="stat"><div class="k">Feed</div><div id="stFeed" class="v">0</div></div>
+        <div class="stat"><div class="k">Me interesa</div><div id="stInteresa" class="v">0</div></div>
+        <div class="stat"><div class="k">Ya apliqué</div><div id="stAplique" class="v">0</div></div>
+        <div class="stat"><div class="k">No me interesa</div><div id="stNoInteresa" class="v">0</div></div>
+      </section>
+
+      <section id="cards" class="results-list"></section>
+      <div id="empty" class="empty">Sin resultados para este filtro.</div>
+    </section>
+  </main>
+
+  <section id="detailModal" class="modal" aria-hidden="true">
+    <article class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="modal-top">
+        <h3 id="modalTitle" class="modal-title">Detalle</h3>
+        <button class="close" type="button" id="closeModal">×</button>
+      </div>
+
+      <div id="modalMeta" class="detail-grid"></div>
+
+      <div class="detail-block">
+        <h4>Resumen</h4>
+        <p id="modalSummary" class="txt"></p>
+      </div>
+
+      <div class="detail-block">
+        <h4>Contenido Completo</h4>
+        <p id="modalContent" class="txt"></p>
+      </div>
+
+      <div class="detail-block">
+        <h4>Todos los Campos</h4>
+        <div id="modalAllFields" class="all-fields"></div>
+      </div>
+
+      <div class="detail-block">
+        <h4>JSON Completo</h4>
+        <pre id="modalRawJson" class="raw-json"></pre>
+      </div>
+    </article>
+  </section>
+
+  <script>
+    let allRecords = [];
+    let textDebounce = null;
+
+    const statusEl = document.getElementById('status');
+    const cardsEl = document.getElementById('cards');
+    const emptyEl = document.getElementById('empty');
+
+    const filterTextEl = document.getElementById('filterText');
+    const filterKeywordEl = document.getElementById('filterKeyword');
+    const filterModeEl = document.getElementById('filterMode');
+    const filterStatusEl = document.getElementById('filterStatus');
+    const profileStateEl = document.getElementById('profileState');
+    const profileNameEl = document.getElementById('profileName');
+    const profileUpdatedEl = document.getElementById('profileUpdated');
+    const profileRolesEl = document.getElementById('profileRoles');
+    const profileBriefEl = document.getElementById('profileBrief');
+    const profileActionEl = document.getElementById('profileAction');
+
+    const detailModalEl = document.getElementById('detailModal');
+    const closeModalEl = document.getElementById('closeModal');
+
+    function setStatus(text, type = '') {
+      statusEl.classList.remove('ok', 'error');
+      if (type) statusEl.classList.add(type);
+      statusEl.textContent = text;
+    }
+
+    function normalizeStatus(value) {
+      if (!value) return '';
+      const status = String(value).trim().toLowerCase();
+      return ['me_interesa', 'no_me_interesa', 'ya_aplique'].includes(status) ? status : '';
+    }
+
+    function getStatusLabel(status) {
+      if (status === 'me_interesa') return 'Me interesa';
+      if (status === 'no_me_interesa') return 'No me interesa';
+      if (status === 'ya_aplique') return 'Ya apliqué';
+      return 'Sin marcar';
+    }
+
+    function getStatusClass(status) {
+      if (status === 'me_interesa') return 'status-interest';
+      if (status === 'no_me_interesa') return 'status-no-interest';
+      if (status === 'ya_aplique') return 'status-applied';
+      return '';
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+
+    function formatDate(value) {
+      if (!value) return '-';
+      return String(value).replace('T', ' ').replace('+00:00', ' UTC');
+    }
+
+    function shortText(value, max = 130) {
+      const text = String(value || '').trim();
+      if (!text) return '-';
+      return text.length > max ? `${text.slice(0, max)}...` : text;
+    }
+
+    function formatFieldLabel(key) {
+      const map = {
+        source_type: 'Tipo',
+        source_id: 'Source ID',
+        title: 'Título',
+        company: 'Empresa',
+        author: 'Autor',
+        summary: 'Resumen',
+        content: 'Contenido',
+        seniority: 'Seniority',
+        apply_type: 'Apply Type',
+        url: 'URL',
+        keyword: 'Keyword',
+        search_mode: 'Modo Búsqueda',
+        scraped_at: 'Fecha Scrapeo',
+        dedupe_key: 'Dedupe Key',
+        user_status: 'Estado Usuario',
+        status_updated_at: 'Estado Actualizado',
+        deleted_at: 'Eliminado',
+      };
+      return map[key] || key;
+    }
+
+    function formatFieldValue(key, value) {
+      if (value === null || value === undefined || value === '') return '-';
+      if (typeof value === 'object') return JSON.stringify(value);
+      if (key.endsWith('_at')) return formatDate(value);
+      if (key === 'user_status') return getStatusLabel(normalizeStatus(value));
+      return String(value);
+    }
+
+    function updateStats(summary) {
+      document.getElementById('stTotal').textContent = Number(summary.total || 0);
+      document.getElementById('stJobs').textContent = Number(summary.jobs || 0);
+      document.getElementById('stFeed').textContent = Number(summary.feed || 0);
+      document.getElementById('stInteresa').textContent = Number(summary.me_interesa || 0);
+      document.getElementById('stAplique').textContent = Number(summary.ya_aplique || 0);
+      document.getElementById('stNoInteresa').textContent = Number(summary.no_me_interesa || 0);
+    }
+
+    async function parseResponseJson(res) {
+      const raw = await res.text();
+      try {
+        return JSON.parse(raw);
+      } catch (_err) {
+        return { error: raw || `Respuesta no JSON (${res.status})` };
+      }
+    }
+
+    async function loadKeywords() {
+      try {
+        const res = await fetch('api.php?action=keywords', { method: 'GET' });
+        const data = await parseResponseJson(res);
+        if (!res.ok) return;
+
+        const current = filterKeywordEl.value || 'all';
+        const opts = Array.isArray(data.keywords) ? data.keywords : [];
+
+        filterKeywordEl.innerHTML = '';
+        const baseOpt = document.createElement('option');
+        baseOpt.value = 'all';
+        baseOpt.textContent = 'Todas las keywords';
+        filterKeywordEl.appendChild(baseOpt);
+
+        opts.forEach((keyword) => {
+          const opt = document.createElement('option');
+          opt.value = keyword;
+          opt.textContent = keyword;
+          filterKeywordEl.appendChild(opt);
+        });
+
+        if ([...filterKeywordEl.options].some((o) => o.value === current)) {
+          filterKeywordEl.value = current;
+        } else {
+          filterKeywordEl.value = 'all';
+        }
+      } catch (_err) {
+        // no-op
+      }
+    }
+
+    function renderProfileGlance(profile, report) {
+      if (!profile) {
+        profileStateEl.textContent = 'Aún no tienes perfil guardado. Créalo para recibir recomendaciones más precisas.';
+        profileNameEl.textContent = '-';
+        profileUpdatedEl.textContent = '-';
+        profileRolesEl.textContent = '-';
+        profileBriefEl.textContent = '-';
+        profileActionEl.textContent = 'Crear Mi Perfil';
+        return;
+      }
+
+      const brief = (report && report.brief) || profile.ai_brief || '';
+      profileStateEl.textContent = brief
+        ? 'Tu perfil está listo y ya tiene análisis IA guardado.'
+        : 'Tu perfil está guardado. Puedes generar análisis IA cuando quieras.';
+      profileNameEl.textContent = shortText(profile.full_name, 60);
+      profileUpdatedEl.textContent = formatDate(profile.updated_at).slice(0, 19);
+      profileRolesEl.textContent = shortText(profile.target_roles, 140);
+      profileBriefEl.textContent = shortText(brief || 'Aún no hay brief generado.', 180);
+      profileActionEl.textContent = 'Abrir Perfil y Estrategia';
+    }
+
+    async function loadProfileGlance() {
+      try {
+        const res = await fetch('api.php?action=profile_get');
+        const data = await parseResponseJson(res);
+        if (!res.ok) {
+          renderProfileGlance(null, null);
+          return;
+        }
+        renderProfileGlance(data.profile || null, data.latest_report || null);
+      } catch (_err) {
+        renderProfileGlance(null, null);
+      }
+    }
+
+    function renderCards() {
+      cardsEl.innerHTML = '';
+      if (!allRecords.length) {
+        emptyEl.style.display = 'block';
+        return;
+      }
+
+      emptyEl.style.display = 'none';
+      allRecords.forEach((r, idx) => {
+        const isJob = r.source_type === 'jobs';
+        const title = isJob ? (r.title || 'Sin título') : (r.author || 'Post de LinkedIn');
+        const context = isJob ? (r.company || 'Sin empresa') : (r.keyword || 'Sin keyword');
+        const snippet = r.summary || r.content || 'Sin contenido';
+        const statusValue = normalizeStatus(r.user_status);
+
+        const row = document.createElement('article');
+        row.className = 'result-row';
+        row.dataset.index = String(idx);
+        row.innerHTML = `
+          <div>
+            <div class="row-head">
+              <span class="pill">${escapeHtml(r.source_type || 'n/a')}</span>
+              <span class="pill keyword">${escapeHtml(r.keyword || 'sin-keyword')}</span>
+              <span>${escapeHtml(formatDate(r.scraped_at).slice(0, 19))}</span>
+            </div>
+            <h3 class="title-line">${escapeHtml(title)}</h3>
+            <p class="context-line">${escapeHtml(context)}</p>
+            <div class="meta-line">
+              <span class="meta-chip">seniority: ${escapeHtml(r.seniority || 'N/A')}</span>
+              <span class="meta-chip">apply: ${escapeHtml(r.apply_type || 'N/A')}</span>
+              <span class="meta-chip ${getStatusClass(statusValue)}">estado: ${escapeHtml(getStatusLabel(statusValue))}</span>
+            </div>
+            <p class="snippet">${escapeHtml(snippet)}</p>
+          </div>
+          <div class="actions">
+            <a class="apply" href="${r.url || '#'}" target="_blank" rel="noreferrer">Abrir Link</a>
+            <button class="track-btn ${statusValue === 'me_interesa' ? 'active' : ''}" data-key="${escapeHtml(r.dedupe_key || '')}" data-status="me_interesa">Me interesa</button>
+            <button class="track-btn ${statusValue === 'ya_aplique' ? 'active' : ''}" data-key="${escapeHtml(r.dedupe_key || '')}" data-status="ya_aplique">Ya apliqué</button>
+            <button class="track-btn ${statusValue === 'no_me_interesa' ? 'active' : ''}" data-key="${escapeHtml(r.dedupe_key || '')}" data-status="no_me_interesa">No me interesa</button>
+            <button class="delete-btn" data-key="${escapeHtml(r.dedupe_key || '')}">Eliminar</button>
+          </div>
+        `;
+        cardsEl.appendChild(row);
+      });
+    }
+
+    async function loadResults() {
+      const mode = filterModeEl.value;
+      const status = filterStatusEl.value;
+      const keyword = filterKeywordEl.value || 'all';
+      const q = filterTextEl.value.trim();
+
+      setStatus('Cargando resultados...');
+      try {
+        const url = `api.php?action=results&mode=${encodeURIComponent(mode)}&status=${encodeURIComponent(status)}&keyword=${encodeURIComponent(keyword)}&visibility=active&q=${encodeURIComponent(q)}&limit=500`;
+        const res = await fetch(url, { method: 'GET' });
+        const data = await parseResponseJson(res);
+        if (!res.ok) {
+          setStatus(data.error || 'No se pudo cargar resultados.', 'error');
+          return;
+        }
+
+        allRecords = data.records || [];
+        updateStats(data.summary || {});
+        renderCards();
+        setStatus(`Actualizado: ${allRecords.length} registros visibles.`, 'ok');
+      } catch (err) {
+        setStatus(`Error de red: ${err}`, 'error');
+      }
+    }
+
+    async function setRowStatus(dedupeKey, statusValue) {
+      if (!dedupeKey) {
+        setStatus('Registro sin dedupe_key.', 'error');
+        return;
+      }
+
+      try {
+        const res = await fetch('api.php?action=status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ dedupe_key: dedupeKey, user_status: statusValue }),
+        });
+        const data = await parseResponseJson(res);
+        if (!res.ok) {
+          setStatus(data.error || 'No se pudo actualizar estado.', 'error');
+          return;
+        }
+
+        setStatus(`Estado actualizado: ${getStatusLabel(statusValue)}.`, 'ok');
+        await loadResults();
+      } catch (err) {
+        setStatus(`Error actualizando estado: ${err}`, 'error');
+      }
+    }
+
+    async function deleteRow(dedupeKey) {
+      if (!dedupeKey) {
+        setStatus('Registro sin dedupe_key.', 'error');
+        return;
+      }
+
+      const confirmed = window.confirm('¿Eliminar este item de la vista? Esta acción queda persistente en la base de datos.');
+      if (!confirmed) return;
+
+      try {
+        const res = await fetch('api.php?action=delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ dedupe_key: dedupeKey }),
+        });
+        const data = await parseResponseJson(res);
+        if (!res.ok) {
+          setStatus(data.error || 'No se pudo eliminar el registro.', 'error');
+          return;
+        }
+
+        setStatus('Registro eliminado de la lista activa.', 'ok');
+        await loadResults();
+        await loadKeywords();
+      } catch (err) {
+        setStatus(`Error eliminando registro: ${err}`, 'error');
+      }
+    }
+
+    function openDetailModal(index) {
+      const r = allRecords[index];
+      if (!r) return;
+
+      const isJob = r.source_type === 'jobs';
+      const modalTitle = isJob ? (r.title || 'Sin título') : (r.author || 'Post de LinkedIn');
+      const status = normalizeStatus(r.user_status);
+
+      document.getElementById('modalTitle').textContent = modalTitle;
+      document.getElementById('modalSummary').textContent = r.summary || r.content || 'Sin resumen';
+      document.getElementById('modalContent').textContent = r.content || r.summary || 'Sin contenido completo';
+
+      const meta = document.getElementById('modalMeta');
+      meta.innerHTML = '';
+
+      const fields = [
+        ['Tipo', r.source_type || '-'],
+        ['Keyword', r.keyword || '-'],
+        ['Empresa', r.company || '-'],
+        ['Autor', r.author || '-'],
+        ['Seniority', r.seniority || '-'],
+        ['Apply', r.apply_type || '-'],
+        ['Estado', getStatusLabel(status)],
+        ['Fecha scrapeo', formatDate(r.scraped_at)],
+        ['Modo búsqueda', r.search_mode || '-'],
+        ['Eliminado', r.deleted_at ? 'Sí' : 'No'],
+        ['URL', r.url || '-'],
+        ['source_id', r.source_id || '-'],
+        ['dedupe_key', r.dedupe_key || '-'],
+      ];
+
+      fields.forEach(([k, v]) => {
+        const box = document.createElement('div');
+        box.className = 'field';
+        box.innerHTML = `
+          <div class="k">${escapeHtml(k)}</div>
+          <div class="v">${escapeHtml(v)}</div>
+        `;
+        meta.appendChild(box);
+      });
+
+      const allFieldsEl = document.getElementById('modalAllFields');
+      allFieldsEl.innerHTML = '';
+
+      const preferredKeys = [
+        'source_type', 'keyword', 'title', 'company', 'author',
+        'seniority', 'apply_type', 'user_status', 'search_mode',
+        'scraped_at', 'status_updated_at', 'deleted_at', 'url',
+        'source_id', 'dedupe_key', 'summary', 'content',
+      ];
+      const dynamicKeys = Object.keys(r).filter((k) => !preferredKeys.includes(k)).sort();
+      const orderedKeys = [...preferredKeys.filter((k) => Object.prototype.hasOwnProperty.call(r, k)), ...dynamicKeys];
+
+      orderedKeys.forEach((key) => {
+        const row = document.createElement('div');
+        row.className = 'all-field-row';
+        row.innerHTML = `
+          <div class="all-field-key">${escapeHtml(formatFieldLabel(key))}</div>
+          <div class="all-field-value">${escapeHtml(formatFieldValue(key, r[key]))}</div>
+        `;
+        allFieldsEl.appendChild(row);
+      });
+
+      const rawJsonEl = document.getElementById('modalRawJson');
+      rawJsonEl.textContent = JSON.stringify(r, null, 2);
+
+      detailModalEl.classList.add('open');
+      detailModalEl.setAttribute('aria-hidden', 'false');
+    }
+
+    function closeDetailModal() {
+      detailModalEl.classList.remove('open');
+      detailModalEl.setAttribute('aria-hidden', 'true');
+    }
+
+    filterModeEl.addEventListener('change', loadResults);
+    filterStatusEl.addEventListener('change', loadResults);
+    filterKeywordEl.addEventListener('change', loadResults);
+
+    filterTextEl.addEventListener('input', () => {
+      if (textDebounce) clearTimeout(textDebounce);
+      textDebounce = setTimeout(loadResults, 300);
+    });
+
+    document.getElementById('reloadBtn').addEventListener('click', async () => {
+      await loadKeywords();
+      await loadProfileGlance();
+      await loadResults();
+    });
+
+    cardsEl.addEventListener('click', (event) => {
+      const button = event.target.closest('button.track-btn');
+      if (button) {
+        event.stopPropagation();
+        const dedupeKey = button.getAttribute('data-key');
+        const statusValue = button.getAttribute('data-status');
+        setRowStatus(dedupeKey, statusValue);
+        return;
+      }
+
+      const deleteBtn = event.target.closest('button.delete-btn');
+      if (deleteBtn) {
+        event.stopPropagation();
+        const dedupeKey = deleteBtn.getAttribute('data-key');
+        deleteRow(dedupeKey);
+        return;
+      }
+
+      const link = event.target.closest('a.apply');
+      if (link) {
+        event.stopPropagation();
+        return;
+      }
+
+      const row = event.target.closest('.result-row');
+      if (!row) return;
+      const idx = Number(row.dataset.index || '-1');
+      if (Number.isNaN(idx) || idx < 0) return;
+      openDetailModal(idx);
+    });
+
+    closeModalEl.addEventListener('click', closeDetailModal);
+    detailModalEl.addEventListener('click', (event) => {
+      if (event.target === detailModalEl) closeDetailModal();
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') closeDetailModal();
+    });
+
+    (async () => {
+      await loadProfileGlance();
+      await loadKeywords();
+      await loadResults();
+    })();
+  </script>
+</body>
+</html>

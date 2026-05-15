@@ -1,0 +1,915 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>JobsOn | Mi Perfil Profesional</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f4f8fe;
+      --panel: #ffffff;
+      --soft: #f3f7ff;
+      --line: #d5e4f7;
+      --text: #102443;
+      --muted: #617895;
+      --brand: #1769c7;
+      --brand-2: #2ca7ff;
+      --ok: #228454;
+      --danger: #ba3d32;
+      --shadow: 0 24px 54px rgba(16, 49, 84, 0.14);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Space Grotesk", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 12% -6%, rgba(56, 154, 255, 0.2), transparent 35%),
+        radial-gradient(circle at 86% -12%, rgba(15, 98, 208, 0.18), transparent 38%),
+        var(--bg);
+    }
+
+    .app {
+      width: min(1380px, 96vw);
+      margin: 20px auto 30px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .hero {
+      border: 1px solid #d6e5f8;
+      border-radius: 22px;
+      background: linear-gradient(120deg, #ffffff 0%, #eef6ff 55%, #e9f4ff 100%);
+      box-shadow: var(--shadow);
+      padding: 18px;
+      display: grid;
+      grid-template-columns: 1.4fr .9fr;
+      gap: 14px;
+      align-items: center;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(1.4rem, 2.8vw, 2rem);
+      line-height: 1.1;
+    }
+
+    h1 em {
+      font-family: "Instrument Serif", serif;
+      font-style: italic;
+      font-weight: 400;
+      color: #2a68bf;
+    }
+
+    .hero p {
+      margin: 9px 0 0;
+      color: var(--muted);
+      max-width: 76ch;
+    }
+
+    .hero-tools {
+      display: grid;
+      gap: 8px;
+      justify-items: end;
+    }
+
+    .nav {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .nav a {
+      text-decoration: none;
+      border: 1px solid #cbddf4;
+      border-radius: 10px;
+      background: #f3f8ff;
+      color: #285587;
+      padding: 7px 10px;
+      font-size: .8rem;
+      font-weight: 700;
+    }
+
+    .status {
+      width: 100%;
+      border: 1px dashed #c5d8f0;
+      border-radius: 12px;
+      min-height: 64px;
+      background: #f9fcff;
+      padding: 10px;
+      display: flex;
+      align-items: center;
+      color: #5e7595;
+      font-size: .88rem;
+    }
+
+    .status.ok { color: var(--ok); }
+    .status.error { color: var(--danger); }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 1.1fr .9fr;
+      gap: 12px;
+    }
+
+    .panel {
+      border: 1px solid #d6e5f8;
+      border-radius: 18px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      padding: 14px;
+    }
+
+    h2 {
+      margin: 0 0 8px;
+      font-size: 1rem;
+      letter-spacing: .02em;
+    }
+
+    .hint {
+      margin: 0 0 10px;
+      font-size: .8rem;
+      color: var(--muted);
+    }
+
+    label {
+      display: block;
+      font-size: .78rem;
+      font-weight: 700;
+      margin: 10px 0 4px;
+      color: #1f3f66;
+      letter-spacing: .02em;
+    }
+
+    input, textarea, select, button {
+      font: inherit;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      width: 100%;
+    }
+
+    input, textarea, select {
+      background: var(--soft);
+      color: var(--text);
+      padding: 9px 10px;
+    }
+
+    textarea {
+      min-height: 90px;
+      resize: vertical;
+      line-height: 1.35;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .cv-card {
+      border: 1px solid #d9e6f8;
+      border-radius: 12px;
+      padding: 10px;
+      background: #fbfdff;
+      margin-top: 10px;
+    }
+
+    .actions {
+      margin-top: 12px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .run-ai {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid #d4e4f7;
+      border-radius: 999px;
+      background: #f6fbff;
+      padding: 6px 10px;
+      font-size: .8rem;
+      color: #234f80;
+      font-weight: 700;
+    }
+
+    .run-ai input {
+      width: auto;
+      margin: 0;
+    }
+
+    button {
+      border: none;
+      background: linear-gradient(126deg, var(--brand) 0%, var(--brand-2) 100%);
+      color: white;
+      font-weight: 700;
+      padding: 10px 14px;
+      width: auto;
+      min-width: 170px;
+      cursor: pointer;
+      box-shadow: 0 10px 20px rgba(23, 105, 199, 0.25);
+    }
+
+    button.secondary {
+      background: #eaf3ff;
+      color: #255588;
+      border: 1px solid #c9dcf4;
+      box-shadow: none;
+    }
+
+    button:disabled {
+      opacity: .6;
+      cursor: wait;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .tile {
+      border: 1px solid #d6e4f6;
+      border-radius: 10px;
+      background: #f8fbff;
+      padding: 8px;
+    }
+
+    .tile .k {
+      font-size: .67rem;
+      color: #6781a3;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      margin-bottom: 3px;
+    }
+
+    .tile .v {
+      font-size: .88rem;
+      color: #1f3f67;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .block {
+      border: 1px solid #d7e5f7;
+      border-radius: 12px;
+      background: #ffffff;
+      padding: 10px;
+      margin-bottom: 10px;
+    }
+
+    .block h3 {
+      margin: 0 0 6px;
+      font-size: .78rem;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      color: #6481a4;
+    }
+
+    .brief {
+      margin: 0;
+      font-size: .92rem;
+      line-height: 1.42;
+      color: #203f66;
+      white-space: pre-wrap;
+    }
+
+    .analysis {
+      margin: 0;
+      font-size: .86rem;
+      line-height: 1.44;
+      color: #1f3b5f;
+      white-space: pre-wrap;
+      max-height: 280px;
+      overflow: auto;
+    }
+
+    .score-list {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .score {
+      border: 1px solid #d3e3f7;
+      border-radius: 10px;
+      background: #f4f9ff;
+      padding: 8px;
+    }
+
+    .score .label {
+      font-size: .72rem;
+      color: #5f7da0;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+
+    .score .value {
+      margin-top: 3px;
+      font-size: 1.08rem;
+      font-weight: 700;
+      color: #1a4e86;
+    }
+
+    .list {
+      display: grid;
+      gap: 6px;
+      max-height: 220px;
+      overflow: auto;
+      padding-right: 2px;
+    }
+
+    .list-item {
+      border: 1px solid #d4e3f7;
+      border-radius: 10px;
+      background: #f8fbff;
+      padding: 8px;
+      cursor: pointer;
+    }
+
+    .list-item:hover {
+      border-color: #bcd4f1;
+      background: #f1f7ff;
+    }
+
+    .list-item.active {
+      border-color: #6ca7de;
+      background: #e8f3ff;
+    }
+
+    .list-item .t {
+      margin: 0;
+      font-size: .84rem;
+      font-weight: 700;
+      color: #23466f;
+    }
+
+    .list-item .m {
+      margin: 4px 0 0;
+      font-size: .74rem;
+      color: #637c9b;
+    }
+
+    .raw {
+      margin: 0;
+      font-size: .74rem;
+      line-height: 1.35;
+      color: #2a4668;
+      background: #f4f8ff;
+      border: 1px solid #d3e4f8;
+      border-radius: 8px;
+      padding: 8px;
+      max-height: 220px;
+      overflow: auto;
+      white-space: pre;
+    }
+
+    @media (max-width: 1160px) {
+      .layout { grid-template-columns: 1fr; }
+      .hero { grid-template-columns: 1fr; }
+      .hero-tools { justify-items: start; }
+      .nav { justify-content: flex-start; }
+      .grid-3 { grid-template-columns: 1fr 1fr; }
+    }
+
+    @media (max-width: 760px) {
+      .grid-2, .grid-3, .summary-grid, .score-list {
+        grid-template-columns: 1fr;
+      }
+      .actions {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      button { width: 100%; }
+      .run-ai { width: 100%; justify-content: center; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="hero">
+      <div>
+        <h1>Tu <em>Perfil Profesional</em> en la nube</h1>
+        <p>Completa tu información una sola vez, sube tu CV en español e inglés y obtén un resumen estratégico para tomar mejores decisiones laborales.</p>
+      </div>
+      <div class="hero-tools">
+        <nav class="nav">
+          <a href="index.html">Ver Oportunidades</a>
+          <a href="profile.html">Mi Perfil</a>
+        </nav>
+        <div id="status" class="status">Listo para cargar perfil.</div>
+      </div>
+    </section>
+
+    <section class="layout">
+      <article class="panel">
+        <h2>Cuéntanos sobre ti</h2>
+        <p class="hint">Los campos con * son obligatorios. Puedes guardar rápido o guardar y generar recomendaciones automáticamente.</p>
+
+        <form id="profileForm" enctype="multipart/form-data">
+          <input type="hidden" id="profileId" name="profile_id" />
+
+          <div class="grid-2">
+            <div>
+              <label for="fullName">Nombre completo *</label>
+              <input id="fullName" name="full_name" required placeholder="Ej: Erick Ferran" />
+            </div>
+            <div>
+              <label for="headline">Titular profesional</label>
+              <input id="headline" name="headline" placeholder="Ej: Product Manager | Growth" />
+            </div>
+            <div>
+              <label for="email">Email</label>
+              <input id="email" name="email" type="email" placeholder="ejemplo@email.com" />
+            </div>
+            <div>
+              <label for="phone">Teléfono</label>
+              <input id="phone" name="phone" placeholder="+57 ..." />
+            </div>
+            <div>
+              <label for="location">Ubicación</label>
+              <input id="location" name="location" placeholder="Ciudad / País" />
+            </div>
+            <div>
+              <label for="workAuth">Permiso de trabajo</label>
+              <input id="workAuth" name="work_authorization" placeholder="Ej: Colombia + remoto LATAM" />
+            </div>
+            <div>
+              <label for="linkedinUrl">LinkedIn URL</label>
+              <input id="linkedinUrl" name="linkedin_url" placeholder="https://linkedin.com/in/..." />
+            </div>
+            <div>
+              <label for="portfolioUrl">Portfolio / Web</label>
+              <input id="portfolioUrl" name="portfolio_url" placeholder="https://..." />
+            </div>
+          </div>
+
+          <label for="targetRoles">Tipo de trabajo que buscas *</label>
+          <textarea id="targetRoles" name="target_roles" required placeholder="Roles objetivo, funciones y foco principal."></textarea>
+
+          <div class="grid-3">
+            <div>
+              <label for="targetIndustries">Industrias objetivo</label>
+              <textarea id="targetIndustries" name="target_industries" placeholder="Fintech, SaaS, e-commerce..."></textarea>
+            </div>
+            <div>
+              <label for="targetCountries">Países / mercados</label>
+              <textarea id="targetCountries" name="target_countries" placeholder="US, LATAM, España..."></textarea>
+            </div>
+            <div>
+              <label for="workModes">Modalidad de trabajo</label>
+              <textarea id="workModes" name="work_modes" placeholder="Remoto, híbrido, onsite"></textarea>
+            </div>
+          </div>
+
+          <div class="grid-3">
+            <div>
+              <label for="employmentTypes">Tipo de contrato</label>
+              <input id="employmentTypes" name="employment_types" placeholder="Full-time, freelance, consultoría" />
+            </div>
+            <div>
+              <label for="seniorityTarget">Seniority objetivo</label>
+              <input id="seniorityTarget" name="seniority_target" placeholder="Mid / Senior / Lead" />
+            </div>
+            <div>
+              <label for="salaryExpectation">Rango salarial esperado</label>
+              <input id="salaryExpectation" name="salary_expectation" placeholder="Ej: USD 2k-3k" />
+            </div>
+          </div>
+
+          <label for="preferredLanguages">Idiomas del profesional</label>
+          <input id="preferredLanguages" name="preferred_languages" placeholder="Ej: Español nativo, Inglés C1" />
+
+          <label for="skillsCore">Skills principales</label>
+          <textarea id="skillsCore" name="skills_core" placeholder="Hard + soft skills clave."></textarea>
+
+          <div class="grid-2">
+            <div>
+              <label for="strengths">Fortalezas</label>
+              <textarea id="strengths" name="strengths" placeholder="Qué te diferencia."></textarea>
+            </div>
+            <div>
+              <label for="constraints">Limitantes / riesgos</label>
+              <textarea id="constraints" name="constraints" placeholder="Disponibilidad, brechas, restricciones."></textarea>
+            </div>
+          </div>
+
+          <label for="notes">Notas adicionales</label>
+          <textarea id="notes" name="notes" placeholder="Información adicional para la IA."></textarea>
+
+          <div class="cv-card">
+            <h2 style="margin-bottom:6px;">CV en Español</h2>
+            <label for="cvEsFile">Archivo CV ES (pdf/docx/txt/md/rtf)</label>
+            <input id="cvEsFile" name="cv_es_file" type="file" accept=".pdf,.docx,.txt,.md,.rtf" />
+            <label for="cvEsText">Texto CV ES (opcional, recomendado)</label>
+            <textarea id="cvEsText" name="cv_es_text" placeholder="Si quieres un análisis más preciso, pega aquí el texto del CV en español."></textarea>
+          </div>
+
+          <div class="cv-card">
+            <h2 style="margin-bottom:6px;">CV en Inglés</h2>
+            <label for="cvEnFile">Archivo CV EN (pdf/docx/txt/md/rtf)</label>
+            <input id="cvEnFile" name="cv_en_file" type="file" accept=".pdf,.docx,.txt,.md,.rtf" />
+            <label for="cvEnText">Texto CV EN (opcional, recomendado)</label>
+            <textarea id="cvEnText" name="cv_en_text" placeholder="Pega aquí el texto del CV en inglés si lo tienes."></textarea>
+          </div>
+
+          <div class="actions">
+            <label class="run-ai" for="runAi">
+              <input id="runAi" type="checkbox" checked />
+              Generar recomendaciones al guardar
+            </label>
+            <button id="saveBtn" type="submit">Guardar Mi Perfil</button>
+            <button id="refreshBtn" class="secondary" type="button">Recargar información</button>
+          </div>
+        </form>
+      </article>
+
+      <article class="panel">
+        <h2>Resumen y Recomendaciones</h2>
+        <p class="hint">Aquí verás tu último resumen estratégico y el historial para hacer seguimiento de tu evolución.</p>
+
+        <section class="summary-grid" id="profileSummary">
+          <div class="tile"><div class="k">Perfil</div><div class="v">Sin cargar</div></div>
+          <div class="tile"><div class="k">Última actualización</div><div class="v">-</div></div>
+          <div class="tile"><div class="k">CV ES</div><div class="v">-</div></div>
+          <div class="tile"><div class="k">CV EN</div><div class="v">-</div></div>
+        </section>
+
+        <section class="block">
+          <h3>Brief Ejecutivo</h3>
+          <p id="briefText" class="brief">Aún no hay brief generado.</p>
+        </section>
+
+        <section class="block">
+          <h3>Indicadores Clave</h3>
+          <div id="scoreList" class="score-list">
+            <div class="score"><div class="label">Sin datos</div><div class="value">-</div></div>
+          </div>
+        </section>
+
+        <section class="block">
+          <h3>Análisis Detallado</h3>
+          <p id="analysisText" class="analysis">Aún no hay análisis.</p>
+        </section>
+
+        <section class="block">
+          <h3>Historial de Perfiles</h3>
+          <div id="profilesList" class="list"></div>
+        </section>
+
+        <section class="block">
+          <h3>Historial de Recomendaciones</h3>
+          <div id="reportsList" class="list"></div>
+        </section>
+
+        <section class="block">
+          <h3>JSON Estructurado</h3>
+          <pre id="rawStructured" class="raw">{}</pre>
+        </section>
+      </article>
+    </section>
+  </main>
+
+  <script>
+    const statusEl = document.getElementById('status');
+    const formEl = document.getElementById('profileForm');
+    const saveBtn = document.getElementById('saveBtn');
+    const refreshBtn = document.getElementById('refreshBtn');
+
+    const profileIdEl = document.getElementById('profileId');
+    const runAiEl = document.getElementById('runAi');
+
+    let currentProfile = null;
+    let currentReports = [];
+
+    function setStatus(text, kind = '') {
+      statusEl.classList.remove('ok', 'error');
+      if (kind) statusEl.classList.add(kind);
+      statusEl.textContent = text;
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+
+    function humanDate(value) {
+      if (!value) return '-';
+      return String(value).replace('T', ' ').replace('+00:00', ' UTC');
+    }
+
+    async function parseResponseJson(res) {
+      const raw = await res.text();
+      try {
+        return JSON.parse(raw);
+      } catch (_err) {
+        return { error: raw || `Respuesta no JSON (${res.status})` };
+      }
+    }
+
+    function setFormValue(id, value) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.value = value || '';
+    }
+
+    function fillForm(profile) {
+      if (!profile) {
+        profileIdEl.value = '';
+        return;
+      }
+
+      profileIdEl.value = profile.id || '';
+      setFormValue('fullName', profile.full_name);
+      setFormValue('headline', profile.headline);
+      setFormValue('email', profile.email);
+      setFormValue('phone', profile.phone);
+      setFormValue('location', profile.location);
+      setFormValue('workAuth', profile.work_authorization);
+      setFormValue('linkedinUrl', profile.linkedin_url);
+      setFormValue('portfolioUrl', profile.portfolio_url);
+
+      setFormValue('targetRoles', profile.target_roles);
+      setFormValue('targetIndustries', profile.target_industries);
+      setFormValue('targetCountries', profile.target_countries);
+      setFormValue('workModes', profile.work_modes);
+      setFormValue('employmentTypes', profile.employment_types);
+      setFormValue('seniorityTarget', profile.seniority_target);
+      setFormValue('salaryExpectation', profile.salary_expectation);
+      setFormValue('preferredLanguages', profile.preferred_languages);
+
+      setFormValue('skillsCore', profile.skills_core);
+      setFormValue('strengths', profile.strengths);
+      setFormValue('constraints', profile.constraints);
+      setFormValue('notes', profile.notes);
+
+      setFormValue('cvEsText', profile.cv_es_text || '');
+      setFormValue('cvEnText', profile.cv_en_text || '');
+    }
+
+    function renderProfileSummary(profile) {
+      const holder = document.getElementById('profileSummary');
+      if (!profile) {
+        holder.innerHTML = '<div class="tile"><div class="k">Perfil</div><div class="v">Sin cargar</div></div>';
+        return;
+      }
+
+      holder.innerHTML = `
+        <div class="tile"><div class="k">Perfil</div><div class="v">${escapeHtml(profile.full_name || '-')}</div></div>
+        <div class="tile"><div class="k">Última actualización</div><div class="v">${escapeHtml(humanDate(profile.updated_at))}</div></div>
+        <div class="tile"><div class="k">CV ES</div><div class="v">${escapeHtml(profile.cv_es_filename || 'Sin archivo')}</div></div>
+        <div class="tile"><div class="k">CV EN</div><div class="v">${escapeHtml(profile.cv_en_filename || 'Sin archivo')}</div></div>
+      `;
+    }
+
+    function pickScorecard(structured) {
+      if (!structured || typeof structured !== 'object') return null;
+      if (structured.scorecard && typeof structured.scorecard === 'object') return structured.scorecard;
+      if (structured.scoring && typeof structured.scoring === 'object') return structured.scoring;
+      if (structured.puntajes && typeof structured.puntajes === 'object') return structured.puntajes;
+      return null;
+    }
+
+    function renderScorecard(structured) {
+      const scoreList = document.getElementById('scoreList');
+      const scorecard = pickScorecard(structured);
+      if (!scorecard) {
+        scoreList.innerHTML = '<div class="score"><div class="label">Sin score</div><div class="value">-</div></div>';
+        return;
+      }
+
+      const entries = Object.entries(scorecard);
+      if (!entries.length) {
+        scoreList.innerHTML = '<div class="score"><div class="label">Sin score</div><div class="value">-</div></div>';
+        return;
+      }
+
+      scoreList.innerHTML = entries.map(([k, v]) => `
+        <div class="score">
+          <div class="label">${escapeHtml(k.replaceAll('_', ' '))}</div>
+          <div class="value">${escapeHtml(v)}</div>
+        </div>
+      `).join('');
+    }
+
+    function renderAnalysis(profile, report) {
+      const briefEl = document.getElementById('briefText');
+      const analysisEl = document.getElementById('analysisText');
+      const rawEl = document.getElementById('rawStructured');
+
+      const brief = (report && report.brief) || (profile && profile.ai_brief) || '';
+      const analysis = (report && report.analysis) || (profile && profile.ai_analysis) || '';
+      const structured = (report && report.structured) || (profile && profile.ai_structured) || {};
+
+      briefEl.textContent = brief || 'Aún no hay brief generado.';
+      analysisEl.textContent = analysis || 'Aún no hay recomendaciones generadas.';
+      rawEl.textContent = JSON.stringify(structured || {}, null, 2);
+
+      renderScorecard(structured || {});
+    }
+
+    async function loadProfiles() {
+      try {
+        const res = await fetch('api.php?action=profiles&limit=80');
+        const data = await parseResponseJson(res);
+        if (!res.ok) {
+          setStatus(data.error || 'No se pudieron cargar los perfiles.', 'error');
+          return;
+        }
+        renderProfilesList(Array.isArray(data.profiles) ? data.profiles : []);
+      } catch (err) {
+        setStatus(`Error de conexión cargando perfiles: ${err}`, 'error');
+      }
+    }
+
+    function renderProfilesList(profiles) {
+      const holder = document.getElementById('profilesList');
+      holder.innerHTML = '';
+
+      if (!profiles.length) {
+        holder.innerHTML = '<div class="list-item"><p class="t">Sin perfiles</p><p class="m">Todavía no has guardado información.</p></div>';
+        return;
+      }
+
+      profiles.forEach((profile) => {
+        const active = currentProfile && currentProfile.id === profile.id;
+        const item = document.createElement('div');
+        item.className = `list-item ${active ? 'active' : ''}`;
+        item.innerHTML = `
+          <p class="t">${escapeHtml(profile.full_name || 'Sin nombre')}</p>
+          <p class="m">${escapeHtml(profile.headline || profile.target_roles || '-')}</p>
+          <p class="m">Actualizado: ${escapeHtml(humanDate(profile.updated_at).slice(0, 19))}</p>
+        `;
+        item.addEventListener('click', () => {
+          loadProfile(profile.id);
+        });
+        holder.appendChild(item);
+      });
+    }
+
+    async function loadReports(profileId) {
+      if (!profileId) {
+        currentReports = [];
+        renderReports([]);
+        return;
+      }
+
+      try {
+        const res = await fetch(`api.php?action=profile_reports&profile_id=${encodeURIComponent(profileId)}&limit=50`);
+        const data = await parseResponseJson(res);
+        if (!res.ok) {
+          setStatus(data.error || 'No se pudieron cargar las recomendaciones.', 'error');
+          return;
+        }
+        currentReports = Array.isArray(data.reports) ? data.reports : [];
+        renderReports(currentReports);
+      } catch (err) {
+        setStatus(`Error de conexión cargando recomendaciones: ${err}`, 'error');
+      }
+    }
+
+    function renderReports(reports) {
+      const holder = document.getElementById('reportsList');
+      holder.innerHTML = '';
+
+      if (!reports.length) {
+        holder.innerHTML = '<div class="list-item"><p class="t">Sin recomendaciones</p><p class="m">Aún no has generado un resumen con IA.</p></div>';
+        return;
+      }
+
+      reports.forEach((report, idx) => {
+        const item = document.createElement('div');
+        item.className = `list-item ${idx === 0 ? 'active' : ''}`;
+        item.innerHTML = `
+          <p class="t">${escapeHtml(report.model || 'IA')}</p>
+          <p class="m">${escapeHtml((report.brief || 'Sin brief').slice(0, 110))}</p>
+          <p class="m">${escapeHtml(humanDate(report.created_at).slice(0, 19))}</p>
+        `;
+        item.addEventListener('click', () => {
+          renderAnalysis(currentProfile, report);
+          highlightSelectedReport(item);
+        });
+        holder.appendChild(item);
+      });
+    }
+
+    function highlightSelectedReport(selected) {
+      document.querySelectorAll('#reportsList .list-item').forEach((el) => {
+        el.classList.remove('active');
+      });
+      selected.classList.add('active');
+    }
+
+    async function loadProfile(profileId = '') {
+      try {
+        setStatus('Cargando tu información...');
+        const url = profileId
+          ? `api.php?action=profile_get&profile_id=${encodeURIComponent(profileId)}`
+          : 'api.php?action=profile_get';
+        const res = await fetch(url);
+        const data = await parseResponseJson(res);
+
+        if (!res.ok) {
+          setStatus(data.error || 'No se pudo cargar tu perfil.', 'error');
+          return;
+        }
+
+        currentProfile = data.profile || null;
+        fillForm(currentProfile);
+        renderProfileSummary(currentProfile);
+
+        const latestReport = data.latest_report || null;
+        renderAnalysis(currentProfile, latestReport);
+
+        await loadReports(currentProfile ? currentProfile.id : '');
+        await loadProfiles();
+
+        if (currentProfile) {
+          setStatus(`Perfil listo: ${currentProfile.full_name || 'sin nombre'}.`, 'ok');
+        } else {
+          setStatus('Aún no hay un perfil guardado. Puedes crear uno ahora.', 'ok');
+        }
+      } catch (err) {
+        setStatus(`Error de conexión cargando tu perfil: ${err}`, 'error');
+      }
+    }
+
+    async function saveProfile(event) {
+      event.preventDefault();
+
+      const fullName = document.getElementById('fullName').value.trim();
+      const targetRoles = document.getElementById('targetRoles').value.trim();
+      if (!fullName || !targetRoles) {
+        setStatus('Completa Nombre y Tipo de trabajo objetivo.', 'error');
+        return;
+      }
+
+      const formData = new FormData(formEl);
+      const currentId = profileIdEl.value.trim();
+      if (currentId) formData.set('profile_id', currentId);
+      formData.set('run_ai', runAiEl.checked ? '1' : '0');
+
+      saveBtn.disabled = true;
+      setStatus(runAiEl.checked ? 'Guardando y generando recomendaciones...' : 'Guardando tu perfil...');
+
+      try {
+        const res = await fetch('api.php?action=profile_save', {
+          method: 'POST',
+          body: formData,
+        });
+        const data = await parseResponseJson(res);
+
+        if (!res.ok) {
+          setStatus(data.error || 'No se pudo guardar tu perfil.', 'error');
+          return;
+        }
+
+        currentProfile = data.profile || null;
+        fillForm(currentProfile);
+        renderProfileSummary(currentProfile);
+        renderAnalysis(currentProfile, data.latest_report || null);
+
+        await loadReports(currentProfile ? currentProfile.id : '');
+        await loadProfiles();
+
+        if (data.analysis_error) {
+          setStatus(`Perfil guardado, pero hubo un problema al generar recomendaciones: ${data.analysis_error}`, 'error');
+        } else {
+          setStatus('Perfil guardado correctamente y recomendaciones actualizadas.', 'ok');
+        }
+      } catch (err) {
+        setStatus(`Error de conexión guardando tu perfil: ${err}`, 'error');
+      } finally {
+        saveBtn.disabled = false;
+      }
+    }
+
+    formEl.addEventListener('submit', saveProfile);
+    refreshBtn.addEventListener('click', () => loadProfile());
+
+    (async () => {
+      await loadProfile();
+    })();
+  </script>
+</body>
+</html>

@@ -246,6 +246,7 @@ class LinkedInScraper:
         limit: int,
         antiquity_days: int | None = None,
         on_record=None,
+        location: str | None = None,
     ) -> list[dict[str, Any]]:
         playwright, browser, _, page = await self._get_authenticated_page()
         results: list[dict[str, Any]] = []
@@ -261,7 +262,11 @@ class LinkedInScraper:
                 else:
                     tpr = "&f_TPR=r2592000"
 
-            search_url = f"{self.base_url}/jobs/search/?keywords={quote_plus(keywords)}{tpr}"
+            loc_param = ""
+            if location and location.strip():
+                loc_param = f"&location={quote_plus(location.strip())}"
+
+            search_url = f"{self.base_url}/jobs/search/?keywords={quote_plus(keywords)}{loc_param}{tpr}"
             logger.info("Buscando jobs: %s", search_url)
             await page.goto(search_url, wait_until="load", timeout=60000)
             await asyncio.sleep(4)
@@ -605,6 +610,7 @@ class LinkedInScraper:
         limit: int,
         antiquity_days: int | None = None,
         on_record=None,
+        location: str | None = None,
     ) -> list[dict[str, Any]]:
         jobs_limit = max(1, limit // 2)
         feed_limit = max(1, limit - jobs_limit)
@@ -614,6 +620,7 @@ class LinkedInScraper:
             limit=jobs_limit,
             antiquity_days=antiquity_days,
             on_record=on_record,
+            location=location,
         )
         feed = await self.scrape_posts(
             keywords=keywords,

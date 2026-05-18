@@ -29,6 +29,7 @@ class SearchJobRunner:
         exclude_keywords: list[str] | None = None,
         languages: list[str] | None = None,
         mode: str | None = None,  # alias legacy de linkedin_mode
+        location: str | None = None,
     ) -> str:
         sources = sources or ["linkedin"]
         mode = mode or linkedin_mode
@@ -49,6 +50,7 @@ class SearchJobRunner:
                 "days": days,
                 "exclude_keywords": exclude_keywords or [],
                 "languages": languages or [],
+                "location": location,
                 "created_at": datetime.now(UTC).isoformat(),
                 "started_at": None,
                 "finished_at": None,
@@ -74,7 +76,7 @@ class SearchJobRunner:
 
         worker = threading.Thread(
             target=self._run_job,
-            args=(job_id, mode, keywords, limit, days, exclude_keywords or [], languages or [], sources),
+            args=(job_id, mode, keywords, limit, days, exclude_keywords or [], languages or [], sources, location),
             daemon=True,
         )
         worker.start()
@@ -90,6 +92,7 @@ class SearchJobRunner:
         exclude_keywords: list[str],
         languages: list[str],
         sources: list[str],
+        location: str | None = None,
     ) -> None:
         with self._lock:
             job = self._jobs[job_id]
@@ -156,6 +159,7 @@ class SearchJobRunner:
                     exclude_keywords=exclude_keywords,
                     languages=languages,
                     progress_callback=on_progress,
+                    location=location,
                 )
             )
             with self._lock:

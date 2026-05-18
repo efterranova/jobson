@@ -488,6 +488,7 @@ def create_app(settings: Settings | None = None) -> Flask:
         days_raw = payload.get("days", None)
         exclude_keywords = _parse_string_list(payload.get("exclude_keywords"))
         languages = _parse_string_list(payload.get("languages"))
+        location = (payload.get("location") or "").strip() or None
 
         if mode not in {"jobs", "feed", "mixed"}:
             return jsonify({"error": "Modo LinkedIn inválido. Usa jobs, feed o mixed."}), 400
@@ -522,6 +523,7 @@ def create_app(settings: Settings | None = None) -> Flask:
                     linkedin_mode=mode,
                     exclude_keywords=exclude_keywords,
                     languages=languages,
+                    location=location,
                 )
             )
             return jsonify(result)
@@ -564,6 +566,7 @@ def create_app(settings: Settings | None = None) -> Flask:
         days_raw = payload.get("days", None)
         exclude_keywords = _parse_string_list(payload.get("exclude_keywords"))
         languages = _parse_string_list(payload.get("languages"))
+        location = (payload.get("location") or "").strip() or None
 
         try:
             limit = int(limit_raw)
@@ -592,6 +595,7 @@ def create_app(settings: Settings | None = None) -> Flask:
                 linkedin_mode=linkedin_mode,
                 exclude_keywords=exclude_keywords,
                 languages=languages,
+                location=location,
             )
         except RuntimeError as exc:
             return jsonify({"error": str(exc)}), 409

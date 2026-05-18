@@ -186,7 +186,16 @@
       </div>
 
       <label>Palabras clave (coma para varias · vacío = scrape masivo TPE)</label>
-      <input id="keywords" placeholder="ej: developer, desarrollador" />
+      <input id="keywords" placeholder="ej: asistente contable, marketing, ventas" />
+      <small style="color:#9aa0a6;display:block;margin-top:-4px;margin-bottom:8px;">
+        LinkedIn busca estas palabras en título y descripción. Usa frase entre comillas para coincidencia exacta.
+      </small>
+
+      <label>Ubicación LinkedIn (filtro de país/ciudad)</label>
+      <input id="location" placeholder="Ecuador" value="Ecuador" />
+      <small style="color:#9aa0a6;display:block;margin-top:-4px;margin-bottom:8px;">
+        Solo aplica a LinkedIn. Ej.: <code>Ecuador</code>, <code>Quito, Ecuador</code>, <code>América Latina</code>. Vacío = mundial.
+      </small>
 
       <label>Fuentes a scrapear</label>
       <div class="checkbox-row" style="margin-top:4px;">
@@ -596,6 +605,7 @@ async function startSearch() {
     days: $("days").value ? parseInt($("days").value, 10) : null,
     exclude_keywords: $("excludeKeywords").value,
     languages: $("languages").value,
+    location: $("location") ? $("location").value : "",
   };
   const res = await fetch("/api/search/start", {
     method: "POST",

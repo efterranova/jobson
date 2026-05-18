@@ -288,6 +288,7 @@ class SearchService:
         days: int | None,
         linkedin_mode: str,
         on_record,
+        location: str | None = None,
     ) -> list[dict[str, Any]]:
         scraper = self.scrapers.get(source)
         if scraper is None:
@@ -296,10 +297,10 @@ class SearchService:
         if source == "linkedin":
             mode = linkedin_mode if linkedin_mode in VALID_LINKEDIN_MODES else "mixed"
             if mode == "jobs":
-                return await scraper.scrape_jobs(keyword, limit, days, on_record=on_record)
+                return await scraper.scrape_jobs(keyword, limit, days, on_record=on_record, location=location)
             if mode == "feed":
                 return await scraper.scrape_posts(keyword, limit, days, on_record=on_record)
-            return await scraper.scrape_mixed(keyword, limit, days, on_record=on_record)
+            return await scraper.scrape_mixed(keyword, limit, days, on_record=on_record, location=location)
 
         if source == "tpe":
             return await scraper.scrape_jobs(keyword, limit, days, on_record=on_record)
@@ -316,6 +317,7 @@ class SearchService:
         exclude_keywords: str | list[str] | None = None,
         languages: str | list[str] | None = None,
         progress_callback=None,
+        location: str | None = None,
     ) -> dict[str, Any]:
         normalized_sources = self._normalize_sources(sources)
         normalized_keywords = self._normalize_keywords(keywords)
@@ -454,6 +456,7 @@ class SearchService:
                         days=days,
                         linkedin_mode=linkedin_mode,
                         on_record=handler,
+                        location=location,
                     )
                 except Exception as exc:  # pragma: no cover
                     # No abortar: si una fuente falla, seguimos con la otra.

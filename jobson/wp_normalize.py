@@ -459,6 +459,113 @@ def pick_featured_image_url(categories: list[str], lang: str = "es") -> str:
     return CATEGORY_FEATURED_IMAGE["otros-categoria-general"]
 
 
+# ---------------------------------------------------------------------------
+# Purga de nombres de empresa contaminados (portal-as-company, sufijos basura)
+# ---------------------------------------------------------------------------
+
+# Portales que NO son empresas reales. Si llegan como `company`, intentamos
+# derivar la empresa del dominio del email; si no se puede, el record se skipea.
+PORTAL_COMPANY_BLACKLIST: tuple[str, ...] = (
+    "tuportalempleo",
+    "computrabajo",
+    "bumeran",
+    "indeed",
+    "linkedin",
+    "multitrabajos",
+    "elempleo",
+    "workable",
+    "lever",
+    "greenhouse",
+)
+
+# Dominios genéricos: no permiten derivar empresa real. Lista corta, ampliable.
+GENERIC_EMAIL_DOMAINS: frozenset[str] = frozenset({
+    "gmail.com", "googlemail.com",
+    "hotmail.com", "hotmail.es", "hotmail.co", "hotmail.com.ec",
+    "outlook.com", "outlook.es", "live.com", "msn.com",
+    "yahoo.com", "yahoo.es", "yahoo.com.ec", "ymail.com",
+    "icloud.com", "me.com", "mac.com",
+    "aol.com", "protonmail.com", "proton.me", "pm.me",
+    "zoho.com", "gmx.com", "mail.com",
+})
+
+# Separadores que indican que el regex del scraper TPE concatenó company+otra cosa
+_COMPANY_SUFFIX_BUGS: tuple[str, ...] = (
+    " Ubicación:", " Ubicacion:", " ubicación:", " ubicacion:",
+    " Instrucción", " Instruccion",
+    " Tipo de contrato",
+)
+
+
+def _company_from_email_domain(email: str) -> tuple[str, str]:
+    """('Besttalents', 'besttalents.com.ec') desde 'foo@besttalents.com.ec'.
+
+    Devuelve ('','') si el email es vacío, malformado o de dominio genérico.
+    """
+    if not email or "@" not in email:
+        return ("", "")
+    domain = email.split("@", 1)[1].strip().lower().rstrip(".")
+    if not domain or domain in GENERIC_EMAIL_DOMAINS:
+        return ("", "")
+    head = domain.split(".", 1)[0]
+    if len(head) < 2:
+        return ("", "")
+    return (head.capitalize(), domain)
+
+
+INDEPENDENT_RECRUITER_LABEL = "Reclutador Independiente"
+
+
+def clean_company(company: str | None, apply_email: str | None = "") -> tuple[str, str]:
+    """Limpia / deriva el nombre de empresa para publicar.
+
+    Reglas (en orden):
+      1. Corta sufijos basura del parser TPE (' Ubicación:', ' Instrucción'…).
+      2. Si el resultado matchea un portal conocido (PORTAL_COMPANY_BLACKLIST):
+           a. Si el email tiene dominio corporativo → deriva
+              ('Besttalents', 'besttalents.com.ec').
+           b. Si el email es genérico (gmail, hotmail…) → etiqueta como
+              'Reclutador Independiente' (entidad compartida; cada job
+              conserva su propio apply_email).
+           c. Si no hay email → devuelve ('', '') para SKIP (sin contacto).
+
+    Returns:
+      (company_name, company_website_inferred). Si name == '', el caller
+      debe NO publicar este record.
+    """
+    name = (company or "").strip()
+    if not name:
+        return ("", "")
+
+    # 1) Sufijos basura
+    for sep in _COMPANY_SUFFIX_BUGS:
+        if sep in name:
+            name = name.split(sep, 1)[0].strip()
+            break
+    name = name.strip(" -·,")
+    if not name:
+        return ("", "")
+
+    # 2) Portal-as-company → derivar del email o etiquetar
+    norm = _strip_accents(name).lower()
+    is_portal = any(p in norm for p in PORTAL_COMPANY_BLACKLIST)
+    if not is_portal:
+        return (name, "")
+
+    email = (apply_email or "").strip()
+    if not email or "@" not in email:
+        return ("", "")  # sin contacto: skip
+
+    domain = email.split("@", 1)[1].strip().lower().rstrip(".")
+    if domain and domain not in GENERIC_EMAIL_DOMAINS:
+        head = domain.split(".", 1)[0]
+        if len(head) >= 2:
+            return (head.capitalize(), domain)
+
+    # Dominio genérico (gmail, hotmail…) → reclutador independiente
+    return (INDEPENDENT_RECRUITER_LABEL, "")
+
+
 def is_remote(record: dict[str, Any]) -> bool:
     blob = " ".join(str(record.get(k) or "") for k in ("title", "summary", "content"))
     return bool(REMOTE_RX.search(blob))

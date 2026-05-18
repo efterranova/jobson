@@ -26,6 +26,7 @@ from jobson.ai_normalizer import AINormalizer
 from jobson.storage.base import BaseRepository
 from jobson.wp_normalize import (
     JOB_TYPE_BY_LANG,
+    clean_company,
     normalize_record as _normalize,
     pick_featured_image_url,
 )
@@ -323,10 +324,40 @@ class WPPublisher:
         # Excluye registros sin título (típicamente posts de feed sin estructura)
         records = [r for r in records if (r.get("title") or "").strip()]
 
+        # Purga: filtra company-name contaminados (portal-as-company sin email
+        # corporativo). Los descartados se marcan en Supabase para reproceso.
+        discarded: list[dict[str, Any]] = []
+        publishable: list[dict[str, Any]] = []
+        for rec in records:
+            co_clean, dom = clean_company(
+                rec.get("company") or "",
+                rec.get("apply_email") or "",
+            )
+            if not co_clean:
+                discarded.append(rec)
+                continue
+            # Muta el record para que el resto del pipeline use el nombre limpio.
+            rec["company"] = co_clean
+            if dom and not (rec.get("company_website") or "").strip():
+                rec["company_website"] = f"https://{dom}"
+            publishable.append(rec)
+
+        # Los descartados se skipean en memoria (no mutamos wp_status para no
+        # perder historial de sync previo y mantenerlos elegibles cuando el
+        # scraper se arregle y traiga un email corporativo). El conteo se
+        # reporta en summary['discarded'].
+        records = publishable
+        if discarded:
+            LOG.info(
+                "publish_batch: %d records descartados por portal-leak (company=portal sin email corporativo)",
+                len(discarded),
+            )
+
         results: dict[str, Any] = {
             "total": len(records),
             "created": 0,
             "updated": 0,
+            "discarded": len(discarded),
             "errors": [],
             "items": [],
             "test_batch_id": test_batch_id,

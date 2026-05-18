@@ -267,6 +267,7 @@ def run_publish_wp(settings: Settings, args: argparse.Namespace) -> None:
     print(f"Procesados: {summary['total']}")
     print(f"Creados:    {summary['created']}")
     print(f"Actualizados: {summary['updated']}")
+    print(f"Descartados (portal-leak sin email corporativo): {summary.get('discarded', 0)}")
     print(f"Errores:    {len(summary['errors'])}")
     for item in summary["items"][:20]:
         if args.dry_run:

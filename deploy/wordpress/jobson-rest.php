@@ -2,7 +2,7 @@
 /**
  * Plugin Name: JobsOn REST Bridge for WP Job Manager
  * Description: Expone meta WP Job Manager + Cariera al REST y añade upsert idempotente por dedupe_key. Asigna taxonomías por slug (no crea nuevas), crea/matchea employer users por display_name, y opcionalmente sideloadea una featured image por URL con cache en option `jobson_image_cache`.
- * Version:     1.3.0
+ * Version:     1.3.2
  * Author:      JobsOn
  *
  * Instala este archivo en wp-content/mu-plugins/jobson-rest.php
@@ -44,6 +44,7 @@ add_action('init', function () {
         '_jobson_source_type'  => 'string',
         '_jobson_test_batch'   => 'string',
         '_jobson_unmatched_terms' => 'string',
+        '_company_manager_id'  => 'string',
     ];
 
     foreach ($meta_fields as $key => $type) {
@@ -203,6 +204,76 @@ function jobson_sideload_image(string $url): int {
     return (int) $aid;
 }
 
+/**
+ * Encuentra (case-insensitive por title) o crea un post tipo `company`
+ * (WP Job Manager - Companies). Idempotente. Devuelve company_id o 0.
+ *
+ * Reglas estrictas de datos:
+ *   - NUNCA inventar email para la company. Si $extras['email'] está vacío,
+ *     no se guarda meta `_company_email`.
+ *   - `_company_website` solo se guarda si vino en $extras['website'] y el
+ *     meta aún está vacío (no sobreescribe ediciones manuales en wp-admin).
+ *   - `_company_header_image` se guarda si se pasa attachment_id válido,
+ *     respetando el valor existente.
+ *
+ * Si la company existe pero su post_author difiere de $employer_id, NO se
+ * reasigna (respeta lo que haya configurado el admin).
+ */
+function jobson_find_or_create_company(string $name, int $employer_id, array $extras = []): int {
+    $name = trim($name);
+    if ($name === '' || $employer_id <= 0) return 0;
+    if (!post_type_exists('company')) return 0;
+
+    // Match por title exacto, case-insensitive
+    global $wpdb;
+    $existing = $wpdb->get_var($wpdb->prepare(
+        "SELECT ID FROM {$wpdb->posts}
+           WHERE post_type = 'company'
+             AND post_status IN ('publish','draft','pending','private')
+             AND LOWER(post_title) = LOWER(%s)
+           ORDER BY ID ASC LIMIT 1",
+        $name
+    ));
+    $company_id = $existing ? (int) $existing : 0;
+
+    if (!$company_id) {
+        $company_id = wp_insert_post([
+            'post_type'   => 'company',
+            'post_status' => 'publish',
+            'post_title'  => $name,
+            'post_author' => $employer_id,
+        ], true);
+        if (is_wp_error($company_id)) {
+            error_log('[jobson] no se pudo crear company ' . $name . ': ' . $company_id->get_error_message());
+            return 0;
+        }
+    }
+
+    // Website: solo si vino dato real y la meta aún no está seteada
+    $website = isset($extras['website']) ? trim((string) $extras['website']) : '';
+    if ($website !== '' && !get_post_meta($company_id, '_company_website', true)) {
+        update_post_meta($company_id, '_company_website', esc_url_raw($website));
+    }
+
+    // Email: SOLO si vino dato real, validado, y la meta aún no está seteada.
+    // NO inventamos. Si no hay dato → no se guarda meta.
+    $email = isset($extras['email']) ? trim((string) $extras['email']) : '';
+    if ($email !== '' && is_email($email) && !get_post_meta($company_id, '_company_email', true)) {
+        update_post_meta($company_id, '_company_email', sanitize_email($email));
+    }
+
+    // Header image: reusa el attachment_id del job (Unsplash sideloaded)
+    $hdr_aid = isset($extras['header_attachment_id']) ? (int) $extras['header_attachment_id'] : 0;
+    if ($hdr_aid > 0 && !get_post_meta($company_id, '_company_header_image', true)) {
+        $url = wp_get_attachment_url($hdr_aid);
+        if ($url) {
+            update_post_meta($company_id, '_company_header_image', esc_url_raw($url));
+        }
+    }
+
+    return (int) $company_id;
+}
+
 function jobson_find_by_dedupe(string $dedupe_key): int {
     $q = new WP_Query([
         'post_type'      => 'job_listing',
@@ -269,6 +340,7 @@ function jobson_rest_upsert(WP_REST_Request $req) {
         '_job_expires', '_remote_position', '_featured', '_filled',
         '_job_salary', '_job_salary_currency', '_job_salary_unit', '_job_cover_image',
         '_jobson_source_url', '_jobson_source_type', '_jobson_test_batch',
+        '_company_manager_id',
     ];
 
     $existing = jobson_find_by_dedupe($dedupe_key);
@@ -360,14 +432,35 @@ function jobson_rest_upsert(WP_REST_Request $req) {
         delete_post_meta($post_id, '_jobson_unmatched_terms');
     }
 
-    // Featured image: sideload la URL si vino en el payload y el post aún no tiene thumbnail.
+    // Featured image: sideload la URL si vino en el payload.
+    // Setea TANTO el thumbnail (logo cuadrado en listing) COMO _job_cover_image
+    // (banner grande Cariera). Usa la URL local del attachment, no Unsplash directo.
     $featured_url = isset($params['featured_image_url']) ? trim((string) $params['featured_image_url']) : '';
     $attachment_id = 0;
     if ($featured_url !== '') {
         $attachment_id = jobson_sideload_image($featured_url);
         if ($attachment_id) {
             set_post_thumbnail($post_id, $attachment_id);
+            $local_url = wp_get_attachment_url($attachment_id);
+            if ($local_url) {
+                update_post_meta($post_id, '_job_cover_image', esc_url_raw($local_url));
+            }
             update_post_meta($post_id, '_jobson_featured_image_url', esc_url_raw($featured_url));
+        }
+    }
+
+    // Company CPT linkage: encuentra/crea el `company` y guarda _company_manager_id
+    // en el job. Reglas estrictas: NO inventar email. Solo persistir datos reales.
+    $company_id = 0;
+    if ($employer_id && $company_name !== '' && post_type_exists('company')) {
+        $extras = [
+            'website'              => isset($meta_in['_company_website']) ? (string) $meta_in['_company_website'] : '',
+            'email'                => isset($params['company_email']) ? (string) $params['company_email'] : '',
+            'header_attachment_id' => $attachment_id,
+        ];
+        $company_id = jobson_find_or_create_company($company_name, (int) $employer_id, $extras);
+        if ($company_id) {
+            update_post_meta($post_id, '_company_manager_id', (string) $company_id);
         }
     }
 
@@ -380,5 +473,6 @@ function jobson_rest_upsert(WP_REST_Request $req) {
         'unmatched'     => $unmatched,
         'employer_id'   => $employer_id ?: null,
         'attachment_id' => $attachment_id ?: null,
+        'company_id'    => $company_id ?: null,
     ]);
 }

@@ -149,8 +149,19 @@ def record_to_payload(
         hints = " ".join(str(h) for h in ai_data["category_hints"] if h)
         if hints:
             synth_record["keyword"] = hints + " " + (record.get("keyword") or "")
+    # IA puede sugerir un company name distinto al del scraper. Lo aceptamos
+    # SOLO si pasa el filtro clean_company (no es portal-leak, no es garbage
+    # tipo 'null'/'n/a'). Si la IA propone algo inválido, mantenemos el valor
+    # que ya viene limpio del pre-filtro de publish_batch.
     if ai_data and ai_data.get("company"):
-        synth_record["company"] = str(ai_data["company"]).strip() or record.get("company")
+        ai_co_raw = str(ai_data["company"]).strip()
+        _GARBAGE = {"null", "none", "n/a", "na", "-", "unknown", "desconocida", "desconocido", ""}
+        if ai_co_raw.lower() not in _GARBAGE:
+            ai_clean, ai_dom = clean_company(ai_co_raw, record.get("apply_email") or "")
+            if ai_clean:
+                synth_record["company"] = ai_clean
+                if ai_dom and not (synth_record.get("company_website") or "").strip():
+                    synth_record["company_website"] = f"https://{ai_dom}"
 
     norm = _normalize(synth_record)
     norm = _apply_ai_overrides(norm, ai_data or {})

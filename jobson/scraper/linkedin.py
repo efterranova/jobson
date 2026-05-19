@@ -67,7 +67,7 @@ class LinkedInScraper:
         context = await browser.new_context(storage_state=storage_state)
         page = await context.new_page()
 
-        await page.goto(f"{self.base_url}/jobs/", wait_until="load", timeout=60000)
+        await page.goto(f"{self.base_url}/jobs/", wait_until="domcontentloaded", timeout=60000)
         if await self._is_logged_in(page):
             return playwright, browser, context, page
 
@@ -76,7 +76,7 @@ class LinkedInScraper:
         browser = await playwright.chromium.launch(headless=False)
         context = await browser.new_context()
         page = await context.new_page()
-        await page.goto(f"{self.base_url}/login", wait_until="load", timeout=60000)
+        await page.goto(f"{self.base_url}/login", wait_until="domcontentloaded", timeout=60000)
         await self._wait_for_manual_login(context, page)
         return playwright, browser, context, page
 
@@ -268,7 +268,7 @@ class LinkedInScraper:
 
             search_url = f"{self.base_url}/jobs/search/?keywords={quote_plus(keywords)}{loc_param}{tpr}"
             logger.info("Buscando jobs: %s", search_url)
-            await page.goto(search_url, wait_until="load", timeout=60000)
+            await page.goto(search_url, wait_until="domcontentloaded", timeout=60000)
             await asyncio.sleep(4)
 
             no_new_rounds = 0
@@ -456,7 +456,7 @@ class LinkedInScraper:
                 f"{date_filter}&sortBy=%22date_posted%22"
             )
             logger.info("Buscando posts/feed: %s", search_url)
-            await page.goto(search_url, wait_until="load", timeout=60000)
+            await page.goto(search_url, wait_until="domcontentloaded", timeout=60000)
             await asyncio.sleep(4)
 
             no_new_rounds = 0

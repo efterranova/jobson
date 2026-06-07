@@ -301,7 +301,7 @@ class JobBankScraper:
 
         results: list[dict[str, Any]] = []
         seen_ids: set[str] = set()
-        max_pages = 15
+        max_pages = 25
 
         for page in range(1, max_pages + 1):
             if len(results) >= limit:
@@ -310,10 +310,22 @@ class JobBankScraper:
             html_text = self._get(SEARCH_URL, params=params)
             if not html_text:
                 break
+
+            # Fin REAL de resultados = página sin ningún <article>. Una página
+            # puede traer 25 avisos pero todos agregados (0 directos): en ese
+            # caso NO cortamos — los directos suelen estar en páginas siguientes
+            # (ej. "director" tiene 0 directos en page=1 pero 57 en pages 2-8).
+            all_article_ids = ARTICLE_RE.findall(html_text)
+            if not all_article_ids:
+                logger.info("JobBank: page=%d sin resultados → fin", page)
+                break
             cards = self._parse_cards(html_text)
             if not cards:
-                logger.info("JobBank: sin cards directas en page=%d → fin", page)
-                break
+                logger.info(
+                    "JobBank: page=%d con %d avisos pero 0 directos → sigo",
+                    page, len(all_article_ids),
+                )
+                continue
 
             for card in cards:
                 if len(results) >= limit:

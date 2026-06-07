@@ -100,7 +100,7 @@ create index if not exists idx_linkedin_results_last_seen on public.linkedin_res
 create index if not exists idx_linkedin_results_wp_status on public.linkedin_results (wp_status);
 create index if not exists idx_linkedin_results_contact_status on public.linkedin_results (contact_status);
 
--- source_type ahora también puede valer 'tuportalempleo'. Drop check viejo, recreamos.
+-- source_type también puede valer 'tuportalempleo' y 'jobbank'. Drop check viejo, recreamos.
 do $$
 begin
   if exists (select 1 from pg_constraint where conname = 'linkedin_results_source_type_check') then
@@ -116,7 +116,7 @@ begin
   end if;
   alter table public.linkedin_results
     add constraint linkedin_results_source_type_chk
-    check (source_type in ('jobs','feed','tpe','tuportalempleo'));
+    check (source_type in ('jobs','feed','tpe','tuportalempleo','jobbank'));
 end$$;
 
 do $$

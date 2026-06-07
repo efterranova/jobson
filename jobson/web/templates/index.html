@@ -319,6 +319,18 @@ function safeHost(url) {
   try { return new URL(url).hostname; } catch (_) { return url || ""; }
 }
 
+// Job Bank solo tiene empleos en Canadá. Heurística para detectar si la
+// ubicación tipeada tiene pinta canadiense (provincia, "Canada" o ciudad).
+function looksCanadian(loc) {
+  const s = (loc || "").toLowerCase().trim();
+  if (!s) return true; // vacío = todo Canadá, válido
+  if (s.includes("canada") || s.includes("canadá")) return true;
+  const provs = ["on","bc","ab","qc","mb","sk","ns","nb","nl","pe","nt","nu","yt",
+    "ontario","british columbia","alberta","quebec","québec","manitoba","saskatchewan",
+    "nova scotia","new brunswick","newfoundland","prince edward","yukon","nunavut"];
+  return provs.some(p => new RegExp(`(^|[\\s,])${p}([\\s,]|$)`).test(s));
+}
+
 function fmtContact(row) {
   const parts = [];
   if (row.contact_status === "tiene_ambos") parts.push(chip("ambos","email + web"));
@@ -606,6 +618,19 @@ async function startSearch() {
   if (!sources.length) {
     alert("Selecciona al menos una fuente (LinkedIn / TuPortalEmpleo / Job Bank).");
     return;
+  }
+  // Guard: Job Bank solo busca en Canadá. Si es la única fuente y la ubicación
+  // no tiene pinta canadiense (ej. el default "Ecuador"), avisa antes de gastar
+  // el scrape en 0 resultados.
+  const onlyJobbank = sources.length === 1 && sources[0] === "jobbank";
+  const locVal = ($("location") ? $("location").value : "").trim();
+  if (onlyJobbank && !looksCanadian(locVal)) {
+    const ok = confirm(
+      `Buscas solo en Job Bank (Canadá) con ubicación "${locVal}".\n` +
+      `Job Bank solo tiene empleos en Canadá — con esa ubicación casi seguro no encuentras nada.\n\n` +
+      `Cancela para corregirla (ej. "Toronto, ON" o vacío = todo Canadá), o Aceptar para buscar igual.`
+    );
+    if (!ok) return;
   }
   const body = {
     keywords: $("keywords").value,

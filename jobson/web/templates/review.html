@@ -24,6 +24,19 @@
   .toolbar .sync-btn:hover { background: #059669; }
   .toolbar .sync-btn:disabled { opacity: .5; cursor: not-allowed; }
 
+  /* Sync progress panel */
+  .sync-panel { display: none; padding: .9rem 1.5rem; background: #0b1220; border-bottom: 1px solid #334155; gap: .75rem; flex-direction: column; }
+  .sync-panel.open { display: flex; }
+  .sync-panel .row { display: flex; justify-content: space-between; align-items: center; gap: 1rem; font-size: .85rem; color: #cbd5e1; }
+  .sync-panel .row strong { color: #f1f5f9; }
+  .sync-panel .bar { width: 100%; height: 10px; background: #1e293b; border-radius: 999px; overflow: hidden; border: 1px solid #334155; }
+  .sync-panel .bar > div { height: 100%; background: linear-gradient(90deg,#10b981,#3b82f6); transition: width .3s ease; width: 0; }
+  .sync-panel .last { font-size: .8rem; color: #94a3b8; font-style: italic; min-height: 1.2rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sync-panel .counts span { margin-right: .9rem; }
+  .sync-panel .counts .ok { color: #34d399; }
+  .sync-panel .counts .upd { color: #60a5fa; }
+  .sync-panel .counts .err { color: #f87171; }
+
   .stats { padding: .5rem 1.5rem; font-size: .8rem; color: #94a3b8; }
 
   .list { padding: 1rem 1.5rem 2rem; display: grid; gap: .75rem; }
@@ -114,6 +127,7 @@
     <option value="jobs">LinkedIn Jobs</option>
     <option value="feed">LinkedIn Feed</option>
     <option value="tuportalempleo">TuPortalEmpleo</option>
+    <option value="jobbank">Job Bank (CA)</option>
   </select>
   <select id="wpst" title="Elegibilidad técnica WP">
     <option value="">wp_status: todos</option>
@@ -136,6 +150,19 @@
   {% if current_user and current_user.role == 'admin' %}
     <button class="sync-btn" id="syncBtn" title="Publica todas las 'approved' AND 'wp_status=pending' a WordPress">Sincronizar aprobadas → WP</button>
   {% endif %}
+</div>
+
+<div class="sync-panel" id="syncPanel">
+  <div class="row">
+    <div><strong>Sincronizando a WordPress</strong> · <span id="syncProgressText">0 / 0</span></div>
+    <div class="counts">
+      <span class="ok">✓ <span id="syncCreated">0</span> creadas</span>
+      <span class="upd">↻ <span id="syncUpdated">0</span> actualizadas</span>
+      <span class="err">✗ <span id="syncErrors">0</span> errores</span>
+    </div>
+  </div>
+  <div class="bar"><div id="syncBar"></div></div>
+  <div class="last" id="syncLast">Esperando…</div>
 </div>
 
 <div class="stats" id="stats"></div>
@@ -219,7 +246,9 @@ function renderCard(r) {
   const summarySource = r.summary || r.content || '';
   const summary = summarySource.slice(0, 600);
   const sourceLabel =
-    r.source_type === 'tuportalempleo' || r.source_type === 'tpe' ? '🇪🇨 TuPortalEmpleo' : '💼 LinkedIn';
+    r.source_type === 'tuportalempleo' || r.source_type === 'tpe' ? '🇪🇨 TuPortalEmpleo'
+    : r.source_type === 'jobbank' ? '🇨🇦 Job Bank'
+    : '💼 LinkedIn';
   const url = r.url ? `<a href="${escapeHtml(r.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">🔗 oferta</a>` : '';
   const wpUrl = r.published_wp_url ? `<a href="${escapeHtml(r.published_wp_url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">📄 WP #${r.published_post_id}</a>` : '';
   const applyHint = r.apply_email
@@ -426,18 +455,97 @@ async function setStatus(key, status) {
   if (!remaining) document.getElementById('list').innerHTML = '<div class="empty">No hay más.</div>';
 }
 
+// ---------- Sync progress (background job + polling) ----------
+let SYNC_POLL_TIMER = null;
+
+function setSyncBtnState(running) {
+  const btn = document.getElementById('syncBtn');
+  if (!btn) return;
+  btn.disabled = running;
+  btn.textContent = running ? 'Sincronizando…' : 'Sincronizar aprobadas → WP';
+}
+
+function renderSyncPanel(job) {
+  const panel = document.getElementById('syncPanel');
+  if (!job || !job.total) { panel.classList.remove('open'); return; }
+  const pct = job.total ? Math.round((job.processed / job.total) * 100) : 0;
+  document.getElementById('syncProgressText').textContent = `${job.processed} / ${job.total} · ${pct}%`;
+  document.getElementById('syncBar').style.width = pct + '%';
+  document.getElementById('syncCreated').textContent = job.created || 0;
+  document.getElementById('syncUpdated').textContent = job.updated || 0;
+  document.getElementById('syncErrors').textContent = (job.errors || []).length;
+  const last = job.last_item || '';
+  document.getElementById('syncLast').textContent = job.status === 'success'
+    ? '✓ Sincronización completa'
+    : (last ? `Procesando: ${last}` : 'Esperando…');
+  panel.classList.add('open');
+}
+
+async function pollSync(jobId) {
+  try {
+    const resp = await fetch('/api/sync-approved/status/' + encodeURIComponent(jobId));
+    if (!resp.ok) { stopPolling(); return; }
+    const job = await resp.json();
+    renderSyncPanel(job);
+    if (job.status === 'success' || job.status === 'error') {
+      stopPolling();
+      setSyncBtnState(false);
+      const errs = (job.errors || []).length;
+      const msg = `Procesadas: ${job.processed}\\nCreadas: ${job.created}\\nActualizadas: ${job.updated}\\nErrores: ${errs}`;
+      if (errs > 0) console.warn('Sync errors:', job.errors);
+      // Notificación sutil + recarga del listado para reflejar review_status="published"
+      setTimeout(() => {
+        alert(msg);
+        load();
+      }, 200);
+    }
+  } catch (e) {
+    console.error('Polling sync falló:', e);
+  }
+}
+
+function startPolling(jobId) {
+  stopPolling();
+  setSyncBtnState(true);
+  pollSync(jobId);
+  SYNC_POLL_TIMER = setInterval(() => pollSync(jobId), 1500);
+}
+
+function stopPolling() {
+  if (SYNC_POLL_TIMER) { clearInterval(SYNC_POLL_TIMER); SYNC_POLL_TIMER = null; }
+}
+
 if (IS_ADMIN) {
   document.getElementById('syncBtn').addEventListener('click', async () => {
     if (!confirm('¿Publicar TODAS las aprobadas en WordPress?')) return;
-    const btn = document.getElementById('syncBtn');
-    btn.disabled = true; btn.textContent = 'Sincronizando…';
+    setSyncBtnState(true);
     const resp = await fetch('/api/sync-approved', {method: 'POST', headers: {'Content-Type':'application/json'}, body: '{"limit": 100}'});
-    const data = await resp.json();
-    btn.disabled = false; btn.textContent = 'Sincronizar aprobadas → WP';
-    if (!resp.ok) { alert('Error: ' + (data.error || resp.status)); return; }
-    alert(`Procesadas: ${data.total}\\nCreadas: ${data.created}\\nActualizadas: ${data.updated}\\nErrores: ${data.errors.length}`);
-    if (STATUS === 'approved') load();
+    let data = {};
+    try { data = await resp.json(); } catch {}
+    if (!resp.ok) {
+      setSyncBtnState(false);
+      if (resp.status === 409 && data.job_id) {
+        // Ya hay uno corriendo: engánchate al existente
+        startPolling(data.job_id);
+        return;
+      }
+      alert('Error: ' + (data.error || resp.status));
+      return;
+    }
+    startPolling(data.job_id);
   });
+
+  // Si recargas la página con un sync en curso, retoma el polling
+  (async () => {
+    try {
+      const r = await fetch('/api/sync-approved/active');
+      if (!r.ok) return;
+      const { active } = await r.json();
+      if (active && (active.status === 'queued' || active.status === 'running')) {
+        startPolling(active.job_id);
+      }
+    } catch {}
+  })();
 }
 
 ['src','wpst','cst'].forEach(id => document.getElementById(id).addEventListener('change', load));

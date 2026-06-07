@@ -7,7 +7,7 @@ Feeder de empleos LinkedIn + TuPortalEmpleo → revisor humano → publicación 
 - **Python 3.14** + venv en `.venv/`. Activar: `source .venv/bin/activate` o llamar binarios con `.venv/bin/python`.
 - **Flask** (UI revisor, port 5050) — `main.py --port 5050`.
 - **Playwright** (LinkedIn scraper, headless Chromium).
-- **requests** + **BeautifulSoup** (TPE scraper, HTTP simple).
+- **requests** + regex (TPE y Job Bank scrapers, HTTP simple, sin navegador).
 - **Supabase** (Postgres) — tabla `linkedin_results`. Conexión en `.env`.
 - **OpenRouter** (Gemini 2.5 Flash) — normalizador AI opcional para títulos/descripciones.
 - **WordPress** destino: `erecruit.ca` (prod) y `staging2.erecruit.ca`. Plugin custom en `deploy/wordpress/jobson-rest.php` (mu-plugin v1.3.2).
@@ -18,7 +18,9 @@ Feeder de empleos LinkedIn + TuPortalEmpleo → revisor humano → publicación 
 SCRAPER (local, APP_ROLE=full)
   ├── LinkedInScraper (Playwright, sesión persistente en sessions/storage_state.json)
   │     scrape_jobs(keywords, limit, days, location)  ← location ej. "Ecuador"
-  └── TuPortalEmpleoScraper (requests HTTP, sin auth)
+  ├── TuPortalEmpleoScraper (requests HTTP, sin auth)
+  └── JobBankScraper (requests HTTP, sin auth — jobbank.gc.ca, Canadá)
+        scrape_jobs(keywords, limit, days, location)  ← solo avisos directos (postedonJB)
         ↓
 ENRICHMENT (jobson.service.SearchService)
   ├── geo_extractor → city, state, country, work_mode
@@ -100,6 +102,15 @@ set -a && . ./.env.prod && set +a && .venv/bin/python main.py --publish-wp ...
 - **Filtrar por ciudad/país**: solo via `location=` param (no `geoId=`). El campo `keywords=` busca en título Y descripción del aviso, no como ubicación.
 - **TPE scraper actualmente solo guarda el teaser**, no entra al detalle del aviso. Por eso `apply_email`, `content` completo y nombres de empresa quedan limitados. Arreglar entrando a cada URL individual es trabajo pendiente.
 
+## Gotchas Job Bank (jobbank.gc.ca)
+
+- **Solo capturamos avisos DIRECTOS** (`<span class="postedonJB">` en la card). Los avisos agregados (CareerBeacon, Talent.com, etc.) solo enlazan a terceros y no exponen contacto → se descartan en `_parse_cards`.
+- **El email/web NO está en el HTML estático.** Se revela con el botón "Show how to apply", que es un **POST JSF parcial** (`jsf.ajax.request`) con `ViewState=stateless`. `JobBankScraper._reveal_apply` lo replica: POST a la URL del posting con los params `jakarta.faces.partial.*` + `action=applynowbutton`. La respuesta es un `<partial-response>` XML con el bloque `applynow` (email, URL de empresa o teléfono).
+- **Métodos de aplicación variados:** "By email" (email corporativo o genérico), "By Direct Apply"/"Online" (URL de empresa), "In person"/"By phone" (sin contacto digital → `sin_contacto`/skipped).
+- **Búsqueda:** `searchstring=` (matching por ocupación NOC, no full-text literal — frases largas como "Employment Law" devuelven 0; usa términos cortos: `human resources`, `recruiter`, `lawyer`, `compliance`). `locationstring=` ej. `Toronto, ON`. `sort=M` = más recientes primero. Paginación con `&page=N`.
+- **`location_text` formato `Ciudad (PROV)`** (ej. `North Vancouver (BC)`); `geo_extractor._extract_jobbank` lo parsea a city + provincia + país Canadá. `Various locations` → city None.
+- **Agregadores canadienses** (careerbeacon, talent.com, allstarjobs.ca, civicjobs.ca, eluta, workopolis, neuvoo, jobbank.gc.ca) están en `DEFAULT_PORTAL_BLACKLIST` para que sus URLs no se tomen como web de empresa.
+
 ## Mu-plugin WP (deploy/wordpress/jobson-rest.php)
 
 - **v1.3.2** activo en prod y staging. Versión en frontmatter del archivo.
@@ -116,6 +127,7 @@ jobson/
   scraper/
     linkedin.py        # Playwright + scrape_jobs(location)
     tuportalempleo.py  # HTTP, sin auth
+    jobbank.py         # HTTP, sin auth — Job Bank Canadá, reveal JSF de contacto
   storage/
     supabase_repository.py
     sqlite_repository.py
@@ -146,7 +158,7 @@ scripts/run_daily.sh          # cron wrapper
 ## Convenciones
 
 - Repos paralelos en `BaseRepository`: sqlite (local dev) y supabase (prod). Misma interfaz.
-- `VALID_SOURCES = ("linkedin", "tpe")`.
+- `VALID_SOURCES = ("linkedin", "tpe", "jobbank")`. `source_type` en el record: linkedin→`jobs`/`feed`, tpe→`tpe`, jobbank→`jobbank`.
 - `VALID_WP_STATUSES = {"pending","synced","skipped","failed","discarded"}`. `synced`/`failed`/`discarded` son **terminales** (upsert preserva el valor previo).
 - Featured-image cache en WP es persistente y compartido — borrar un job no borra el attachment.
 

@@ -24,7 +24,7 @@ from jobson.geo_extractor import extract_geo
 from jobson.job_type_classifier import classify_job_type, detect_remote
 from jobson.storage.base import BaseRepository
 
-VALID_SOURCES = ("linkedin", "tpe")
+VALID_SOURCES = ("linkedin", "tpe", "jobbank")
 VALID_LINKEDIN_MODES = ("jobs", "feed", "mixed")
 
 
@@ -304,6 +304,11 @@ class SearchService:
 
         if source == "tpe":
             return await scraper.scrape_jobs(keyword, limit, days, on_record=on_record)
+
+        if source == "jobbank":
+            return await scraper.scrape_jobs(
+                keyword, limit, days, on_record=on_record, location=location
+            )
 
         return []
 

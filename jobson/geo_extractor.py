@@ -167,6 +167,36 @@ def _extract_tpe(location_text: str) -> dict[str, str | None]:
     }
 
 
+# Provincias/territorios de Canadá (códigos de 2 letras que usa Job Bank).
+CA_PROVINCES: dict[str, str] = {
+    "AB": "Alberta", "BC": "British Columbia", "MB": "Manitoba",
+    "NB": "New Brunswick", "NL": "Newfoundland and Labrador",
+    "NS": "Nova Scotia", "NT": "Northwest Territories", "NU": "Nunavut",
+    "ON": "Ontario", "PE": "Prince Edward Island", "QC": "Quebec",
+    "SK": "Saskatchewan", "YT": "Yukon",
+}
+
+_JOBBANK_LOC_RE = re.compile(r"^(.*?)\s*\(([A-Za-z]{2})\)\s*$")
+
+
+def _extract_jobbank(location_text: str) -> dict[str, str | None]:
+    """Job Bank: location_text formato 'Ciudad (PROV)' o 'Various locations'.
+    País siempre Canadá; modalidad se infiere luego del content."""
+    geo: dict[str, str | None] = {
+        "city": None, "state": None, "country": "Canadá", "work_mode": None,
+    }
+    text = (location_text or "").strip()
+    if not text or text.lower().startswith("various"):
+        return geo
+    m = _JOBBANK_LOC_RE.match(text)
+    if m:
+        geo["city"] = m.group(1).strip() or None
+        geo["state"] = CA_PROVINCES.get(m.group(2).upper(), m.group(2).upper())
+    else:
+        geo["city"] = text
+    return geo
+
+
 def _extract_linkedin(location_text: str) -> dict[str, str | None]:
     if not location_text:
         return {"city": None, "state": None, "country": None, "work_mode": None}
@@ -311,6 +341,12 @@ def extract_geo(
 
     if source_type == "tpe":
         return _extract_tpe(location_text)
+
+    if source_type == "jobbank":
+        geo = _extract_jobbank(location_text)
+        if not geo["work_mode"]:
+            geo["work_mode"] = extract_work_mode(content)
+        return geo
 
     if location_text:
         return _extract_linkedin(location_text)

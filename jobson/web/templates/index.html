@@ -126,6 +126,7 @@
     }
     .chip.src-li { background: rgba(56,189,248,0.18); color: var(--brand); }
     .chip.src-tpe { background: rgba(168,85,247,0.18); color: #c084fc; }
+    .chip.src-jobbank { background: rgba(239,68,68,0.16); color: #fca5a5; }
     .chip.src-other { background: rgba(148,163,184,0.18); color: var(--muted); }
     .chip.email { background: rgba(34,197,94,0.15); color: var(--ok); }
     .chip.web { background: rgba(56,189,248,0.15); color: var(--brand); }
@@ -191,10 +192,12 @@
         LinkedIn busca estas palabras en título y descripción. Usa frase entre comillas para coincidencia exacta.
       </small>
 
-      <label>Ubicación LinkedIn (filtro de país/ciudad)</label>
+      <label>Ubicación (LinkedIn / Job Bank)</label>
       <input id="location" placeholder="Ecuador" value="Ecuador" />
       <small style="color:#9aa0a6;display:block;margin-top:-4px;margin-bottom:8px;">
-        Solo aplica a LinkedIn. Ej.: <code>Ecuador</code>, <code>Quito, Ecuador</code>, <code>América Latina</code>. Vacío = mundial.
+        LinkedIn: <code>Ecuador</code>, <code>Quito, Ecuador</code>, <code>América Latina</code>.
+        Job Bank (Canadá): <code>Toronto, ON</code>, <code>Vancouver, BC</code> o vacío = todo Canadá.
+        No aplica a TPE.
       </small>
 
       <label>Fuentes a scrapear</label>
@@ -205,6 +208,10 @@
       <div class="checkbox-row">
         <input type="checkbox" id="srcTpe" checked />
         <label for="srcTpe" style="margin:0;">TuPortalEmpleo (Ecuador)</label>
+      </div>
+      <div class="checkbox-row">
+        <input type="checkbox" id="srcJobbank" />
+        <label for="srcJobbank" style="margin:0;">Job Bank (Canadá · solo avisos directos)</label>
       </div>
 
       <label>Modo LinkedIn</label>
@@ -243,6 +250,7 @@
           <option value="jobs">LinkedIn jobs</option>
           <option value="feed">LinkedIn feed</option>
           <option value="tpe">TuPortalEmpleo</option>
+          <option value="jobbank">Job Bank (Canadá)</option>
         </select>
         <select id="filterWpStatus">
           <option value="all">WP: todos</option>
@@ -361,7 +369,7 @@ async function loadResults() {
 
 function renderStats(summary) {
   const order = [
-    ["total","Total"],["jobs","LI jobs"],["feed","LI feed"],["tpe","TPE"],
+    ["total","Total"],["jobs","LI jobs"],["feed","LI feed"],["tpe","TPE"],["jobbank","Job Bank"],
     ["wp_pending","WP pending"],["wp_synced","WP synced"],
     ["wp_skipped","WP skipped"],["wp_discarded","Descartados"],["wp_failed","WP failed"],
     ["with_country","🌎 país"],["with_city","🏙 ciudad"],
@@ -495,9 +503,10 @@ async function syncApprovedToWp() {
 }
 
 const SOURCE_LABELS = {
-  jobs: { label: "LinkedIn (jobs)", cls: "src-li" },
-  feed: { label: "LinkedIn (feed)", cls: "src-li" },
-  tpe:  { label: "TuPortalEmpleo",  cls: "src-tpe" },
+  jobs:    { label: "LinkedIn (jobs)", cls: "src-li" },
+  feed:    { label: "LinkedIn (feed)", cls: "src-li" },
+  tpe:     { label: "TuPortalEmpleo",  cls: "src-tpe" },
+  jobbank: { label: "Job Bank (CA)",   cls: "src-jobbank" },
 };
 
 function fmtSource(row) {
@@ -593,8 +602,9 @@ async function startSearch() {
   const sources = [];
   if ($("srcLinkedin").checked) sources.push("linkedin");
   if ($("srcTpe").checked) sources.push("tpe");
+  if ($("srcJobbank").checked) sources.push("jobbank");
   if (!sources.length) {
-    alert("Selecciona al menos una fuente (LinkedIn / TuPortalEmpleo).");
+    alert("Selecciona al menos una fuente (LinkedIn / TuPortalEmpleo / Job Bank).");
     return;
   }
   const body = {

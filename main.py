@@ -31,11 +31,13 @@ def configure_logging(settings: Settings) -> None:
 
 
 def build_service(settings: Settings) -> SearchService:
+    from jobson.scraper.jobbank import JobBankScraper
     from jobson.scraper.tuportalempleo import TuPortalEmpleoScraper
     repository = build_repository(settings)
     scrapers = {
         "linkedin": LinkedInScraper(settings.storage_state_path),
         "tpe":      TuPortalEmpleoScraper(),
+        "jobbank":  JobBankScraper(),
     }
     return SearchService(scrapers=scrapers, repository=repository, data_dir=settings.data_dir)
 
@@ -348,7 +350,7 @@ def main() -> None:
         dest="sources",
         type=str,
         default="linkedin",
-        help="Fuentes a scrapear separadas por coma: linkedin, tpe, o all (default linkedin). Ej: 'linkedin,tpe' o 'all'.",
+        help="Fuentes a scrapear separadas por coma: linkedin, tpe, jobbank, o all (default linkedin). Ej: 'linkedin,tpe' o 'all'.",
     )
     parser.add_argument("--keywords", type=str, help="Palabras clave")
     parser.add_argument(
@@ -460,13 +462,13 @@ def main() -> None:
         return
 
     if args.feature or (args.sources and args.sources != "linkedin"):
-        # Normaliza sources: "all" → ["linkedin","tpe"]
+        # Normaliza sources: "all" → ["linkedin","tpe","jobbank"]
         raw_sources = (args.sources or "linkedin").strip().lower()
         if raw_sources in {"all", "*"}:
-            sources = ["linkedin", "tpe"]
+            sources = ["linkedin", "tpe", "jobbank"]
         else:
             sources = [s.strip() for s in raw_sources.replace(";", ",").split(",") if s.strip()]
-        sources = [s for s in sources if s in {"linkedin", "tpe"}] or ["linkedin"]
+        sources = [s for s in sources if s in {"linkedin", "tpe", "jobbank"}] or ["linkedin"]
 
         # Keywords solo es obligatorio si linkedin está en sources
         if "linkedin" in sources and not args.keywords:

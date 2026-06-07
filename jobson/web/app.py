@@ -40,6 +40,7 @@ def build_service(settings: Settings):
     if settings.app_role == "viewer":
         return None, repository
     # Lazy imports solo en modo full (Mac local)
+    from jobson.scraper.jobbank import JobBankScraper  # noqa: I001
     from jobson.scraper.linkedin import LinkedInScraper  # noqa: I001
     from jobson.scraper.tuportalempleo import TuPortalEmpleoScraper  # noqa: I001
     from jobson.service import SearchService  # noqa: I001
@@ -47,6 +48,7 @@ def build_service(settings: Settings):
     scrapers = {
         "linkedin": LinkedInScraper(settings.storage_state_path),
         "tpe":      TuPortalEmpleoScraper(),
+        "jobbank":  JobBankScraper(),
     }
     service = SearchService(scrapers=scrapers, repository=repository, data_dir=settings.data_dir)
     return service, repository
@@ -99,11 +101,18 @@ def create_app(settings: Settings | None = None) -> Flask:
         job_runner = SearchJobRunner(service)
         login_runner = LoginJobRunner(settings.storage_state_path)
 
+    # SyncJobRunner aplica en modo full (es donde se publica a WP).
+    sync_runner = None
+    if settings.app_role != "viewer":
+        from jobson.web.sync_jobs import SyncJobRunner  # noqa: I001
+        sync_runner = SyncJobRunner(repository)
+
     app = Flask(__name__, template_folder=str(TEMPLATES_DIR))
     app.config["service"] = service
     app.config["repository"] = repository
     app.config["job_runner"] = job_runner
     app.config["login_runner"] = login_runner
+    app.config["sync_runner"] = sync_runner
     app.config["session_path"] = settings.storage_state_path
     app.config["SECRET_KEY"] = get_secret_key()
     app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=14)
@@ -223,7 +232,7 @@ def create_app(settings: Settings | None = None) -> Flask:
             return jsonify({"error": "review_status inválido"}), 400
 
         source_type = (request.args.get("source_type") or "").lower()
-        source_type = source_type if source_type in {"jobs", "feed", "tuportalempleo"} else None
+        source_type = source_type if source_type in {"jobs", "feed", "tuportalempleo", "jobbank"} else None
 
         wp_status = (request.args.get("wp_status") or "").lower() or None
         if wp_status and wp_status not in {"pending", "synced", "skipped", "failed", "discarded"}:
@@ -272,58 +281,55 @@ def create_app(settings: Settings | None = None) -> Flask:
             return jsonify({"error": "Registro no encontrado"}), 404
         return jsonify({"record": row})
 
-    # ---------- Sync to WP (admin only) ----------
+    # ---------- Sync to WP (admin only, background job) ----------
     @app.post("/api/sync-approved")
     @admin_required
     def sync_approved():
         from jobson.ai_normalizer import AINormalizer
-        from jobson.wp_publisher import WPPublisher, load_wp_config
+        from jobson.wp_publisher import load_wp_config
+
+        runner = app.config.get("sync_runner")
+        if runner is None:
+            return jsonify({"error": "Sync no disponible en este modo (APP_ROLE=viewer)."}), 400
 
         try:
             cfg = load_wp_config()
         except SystemExit as exc:
             return jsonify({"error": str(exc)}), 400
 
-        ai = AINormalizer.from_env()
-        publisher = WPPublisher(
-            repository=repository,
-            cfg=cfg,
-            dry_run=False,
-            ai_normalizer=ai,
-        )
         try:
             limit = int((request.get_json(silent=True) or {}).get("limit", 50))
         except ValueError:
             limit = 50
 
-        records = repository.list_results(
-            limit=max(1, min(limit, 200)),
-            review_status="approved",
-        )
-        records = [r for r in records if (r.get("title") or "").strip()]
+        ai = AINormalizer.from_env()
+        try:
+            job_id = runner.start_job(cfg=cfg, ai_normalizer=ai, limit=max(1, min(limit, 500)))
+        except RuntimeError as exc:
+            active = runner.get_active_job() or {}
+            return jsonify({"error": str(exc), "job_id": active.get("job_id")}), 409
 
-        results: dict = {"total": len(records), "created": 0, "updated": 0, "errors": []}
-        for rec in records:
-            try:
-                out = publisher.publish_one(rec, status=cfg.default_status)
-            except Exception as exc:
-                results["errors"].append({"dedupe_key": rec.get("dedupe_key"), "error": str(exc)})
-                continue
-            action = out.get("action")
-            if action == "created":
-                results["created"] += 1
-            elif action == "updated":
-                results["updated"] += 1
-            if out.get("id"):
-                try:
-                    repository.mark_published(
-                        dedupe_key=rec["dedupe_key"],
-                        post_id=int(out["id"]),
-                        wp_url=out.get("link"),
-                    )
-                except Exception:
-                    pass
-        return jsonify(results)
+        job = runner.get_job(job_id) or {}
+        return jsonify({"job_id": job_id, "total": job.get("total", 0), "status": job.get("status")})
+
+    @app.get("/api/sync-approved/status/<job_id>")
+    @admin_required
+    def sync_approved_status(job_id: str):
+        runner = app.config.get("sync_runner")
+        if runner is None:
+            return jsonify({"error": "Sync no disponible en este modo."}), 400
+        job = runner.get_job(job_id)
+        if not job:
+            return jsonify({"error": "Job no encontrado"}), 404
+        return jsonify(job)
+
+    @app.get("/api/sync-approved/active")
+    @admin_required
+    def sync_approved_active():
+        runner = app.config.get("sync_runner")
+        if runner is None:
+            return jsonify({"active": None})
+        return jsonify({"active": runner.get_active_job()})
 
     @app.get("/api/results")
     def get_results():
@@ -351,8 +357,8 @@ def create_app(settings: Settings | None = None) -> Flask:
         if status_filter not in ALLOWED_STATUS_FILTERS:
             return jsonify({"error": "status inválido"}), 400
 
-        # source_type acepta jobs/feed/tpe/tuportalempleo
-        if mode in {"jobs", "feed"}:
+        # source_type acepta jobs/feed/tpe/tuportalempleo/jobbank
+        if mode in {"jobs", "feed", "jobbank"}:
             source_type = mode
         elif mode in {"tpe", "tuportalempleo"}:
             source_type = "tuportalempleo"
@@ -390,7 +396,8 @@ def create_app(settings: Settings | None = None) -> Flask:
             "total":          len(rows),
             "jobs":           sum(1 for r in rows if r.get("source_type") == "jobs"),
             "feed":           sum(1 for r in rows if r.get("source_type") == "feed"),
-            "tpe":            sum(1 for r in rows if r.get("source_type") == "tuportalempleo"),
+            "tpe":            sum(1 for r in rows if r.get("source_type") in ("tuportalempleo", "tpe")),
+            "jobbank":        sum(1 for r in rows if r.get("source_type") == "jobbank"),
             "wp_pending":     sum(1 for r in rows if r.get("wp_status") == "pending"),
             "wp_synced":      sum(1 for r in rows if r.get("wp_status") == "synced"),
             "wp_skipped":     sum(1 for r in rows if r.get("wp_status") == "skipped"),
@@ -551,7 +558,7 @@ def create_app(settings: Settings | None = None) -> Flask:
         sources_raw = payload.get("sources") or []
         if isinstance(sources_raw, str):
             sources_raw = [s.strip() for s in sources_raw.split(",") if s.strip()]
-        sources = [s for s in (str(x).strip().lower() for x in sources_raw) if s in {"linkedin", "tpe"}]
+        sources = [s for s in (str(x).strip().lower() for x in sources_raw) if s in {"linkedin", "tpe", "jobbank"}]
         # Compat: si vienen vacíos pero hay "mode", asumimos linkedin
         linkedin_mode = (payload.get("linkedin_mode") or payload.get("mode") or "mixed").strip().lower()
         if linkedin_mode not in {"jobs", "feed", "mixed"}:

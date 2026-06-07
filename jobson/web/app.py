@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import re
 from pathlib import Path
 from typing import Any
 
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 
 from flask import Flask, flash, jsonify, make_response, redirect, render_template, request, url_for
 
@@ -143,6 +144,27 @@ def create_app(settings: Settings | None = None) -> Flask:
     @app.get("/health")
     def health():
         return "<!doctype html><html><body><h1>OK</h1><p>JobsOn vivo.</p></body></html>"
+
+    @app.get("/api/keepalive")
+    def keepalive():
+        """Ping diario (Vercel Cron) que toca el REST de Supabase para evitar
+        que el proyecto free se auto-pause por inactividad. Hace la lectura más
+        barata posible (una fila). Si está configurado CRON_SECRET, exige el
+        header Authorization que Vercel Cron envía."""
+        secret = os.getenv("CRON_SECRET")
+        if secret:
+            auth = request.headers.get("Authorization", "")
+            if auth != f"Bearer {secret}":
+                return jsonify({"ok": False, "error": "unauthorized"}), 401
+        try:
+            repository.list_results(limit=1)
+            return jsonify({
+                "ok": True,
+                "backend": repository.backend_name,
+                "ts": datetime.now(UTC).isoformat(),
+            })
+        except Exception as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 502
 
     # --- LinkedIn session (solo modo full) ---
     @app.get("/api/linkedin/session/status")

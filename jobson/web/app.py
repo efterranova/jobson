@@ -281,7 +281,16 @@ def create_app(settings: Settings | None = None) -> Flask:
             )
         except Exception as exc:
             return jsonify({"error": f"No se pudo leer: {exc}"}), 502
-        return jsonify({"records": rows, "count": len(rows)})
+
+        total = repository.count_results(
+            source_type=source_type,
+            search_text=query or None,
+            review_status=status,
+            wp_status=wp_status,
+            contact_status=contact_status,
+            only_new_today=only_new_today,
+        )
+        return jsonify({"records": rows, "count": len(rows), "total": total})
 
     @app.post("/api/review/<dedupe_key>")
     @login_required

@@ -96,6 +96,44 @@ class SupabaseRepository(BaseRepository):
         updated = len(unique_records) - inserted
         return {"received": len(records), "inserted": inserted, "updated": updated}
 
+    def _filter_params(
+        self,
+        source_type: str | None = None,
+        search_text: str | None = None,
+        user_status: str | None = None,
+        only_followups: bool = False,
+        review_status: str | None = None,
+        wp_status: str | None = None,
+        contact_status: str | None = None,
+        only_new_today: bool = False,
+    ) -> dict[str, Any]:
+        """Construye los filtros PostgREST compartidos por list_results y
+        count_results (mismo WHERE para que el total coincida con la lista)."""
+        params: dict[str, Any] = {}
+        if source_type:
+            params["source_type"] = f"eq.{source_type}"
+        if user_status:
+            params["user_status"] = f"eq.{user_status}"
+        elif only_followups:
+            params["user_status"] = "not.is.null"
+        if review_status:
+            params["review_status"] = f"eq.{review_status}"
+        if wp_status:
+            params["wp_status"] = f"eq.{wp_status}"
+        if contact_status:
+            params["contact_status"] = f"eq.{contact_status}"
+        if only_new_today:
+            today = datetime.now(UTC).date().isoformat()
+            params["first_seen_at"] = f"gte.{today}T00:00:00+00:00"
+        if search_text and search_text.strip():
+            query = search_text.strip().replace("%", "")
+            params["or"] = (
+                f"(title.ilike.*{query}*,company.ilike.*{query}*,author.ilike.*{query}*,"
+                f"summary.ilike.*{query}*,content.ilike.*{query}*,"
+                f"apply_email.ilike.*{query}*,apply_url_external.ilike.*{query}*)"
+            )
+        return params
+
     def list_results(
         self,
         limit: int = 200,
@@ -112,36 +150,11 @@ class SupabaseRepository(BaseRepository):
             "select": "*",
             "order": "first_seen_at.desc.nullslast,scraped_at.desc",
             "limit": max(1, min(limit, 1000)),
+            **self._filter_params(
+                source_type, search_text, user_status, only_followups,
+                review_status, wp_status, contact_status, only_new_today,
+            ),
         }
-
-        if source_type:
-            params["source_type"] = f"eq.{source_type}"
-
-        if user_status:
-            params["user_status"] = f"eq.{user_status}"
-        elif only_followups:
-            params["user_status"] = "not.is.null"
-
-        if review_status:
-            params["review_status"] = f"eq.{review_status}"
-
-        if wp_status:
-            params["wp_status"] = f"eq.{wp_status}"
-
-        if contact_status:
-            params["contact_status"] = f"eq.{contact_status}"
-
-        if only_new_today:
-            today = datetime.now(UTC).date().isoformat()
-            params["first_seen_at"] = f"gte.{today}T00:00:00+00:00"
-
-        if search_text and search_text.strip():
-            query = search_text.strip().replace("%", "")
-            params["or"] = (
-                f"(title.ilike.*{query}*,company.ilike.*{query}*,author.ilike.*{query}*,"
-                f"summary.ilike.*{query}*,content.ilike.*{query}*,"
-                f"apply_email.ilike.*{query}*,apply_url_external.ilike.*{query}*)"
-            )
 
         response = self.session.get(self.endpoint, params=params, timeout=30)
         response.raise_for_status()
@@ -151,6 +164,45 @@ class SupabaseRepository(BaseRepository):
             if isinstance(ai, (dict, list)):
                 row["ai_normalized_json"] = json.dumps(ai, ensure_ascii=False)
         return rows
+
+    def count_results(
+        self,
+        source_type: str | None = None,
+        search_text: str | None = None,
+        user_status: str | None = None,
+        only_followups: bool = False,
+        review_status: str | None = None,
+        wp_status: str | None = None,
+        contact_status: str | None = None,
+        only_new_today: bool = False,
+    ) -> int | None:
+        """Total exacto de filas que matchean los filtros (sin límite).
+        Usa `Prefer: count=exact` → PostgREST lo devuelve en Content-Range."""
+        params: dict[str, Any] = {
+            "select": "dedupe_key",
+            "limit": 1,
+            **self._filter_params(
+                source_type, search_text, user_status, only_followups,
+                review_status, wp_status, contact_status, only_new_today,
+            ),
+        }
+        try:
+            resp = self.session.get(
+                self.endpoint,
+                params=params,
+                headers={"Prefer": "count=exact"},
+                timeout=30,
+            )
+            resp.raise_for_status()
+            # Content-Range: "0-0/461" → total = 461
+            content_range = resp.headers.get("Content-Range", "")
+            if "/" in content_range:
+                total = content_range.rsplit("/", 1)[-1].strip()
+                if total.isdigit():
+                    return int(total)
+        except Exception:
+            return None
+        return None
 
     def update_result_status(self, dedupe_key: str, user_status: str | None) -> dict[str, Any] | None:
         payload: dict[str, Any] = {

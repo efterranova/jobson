@@ -183,6 +183,8 @@ const IS_ADMIN = {{ 'true' if current_user and current_user.role == 'admin' else
 const RECORDS_CACHE = new Map();
 const PAGE_SIZE = 100;       // cuánto crece cada "Cargar más"
 let pageLimit = PAGE_SIZE;   // límite actual pedido al backend
+let CURRENT_TOTAL = null;    // total real en BD para el estado/filtros actuales
+let LOADED_COUNT = 0;        // cuántas cards hay cargadas ahora mismo
 
 function escapeHtml(s){ return (s||'').toString().replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
@@ -213,7 +215,7 @@ async function load() {
   }
   RECORDS_CACHE.clear();
   (data.records || []).forEach(r => RECORDS_CACHE.set(r.dedupe_key, r));
-  render(data.records || []);
+  render(data.records || [], data.total);
 }
 
 function isNewToday(r) {
@@ -302,14 +304,18 @@ function renderCard(r) {
     </div>`;
 }
 
-function render(rows) {
+function render(rows, total) {
   const list = document.getElementById('list');
-  // Si devolvió tantas como pedimos, es muy probable que haya más.
-  const maybeMore = rows.length >= pageLimit;
-  const wrap = document.getElementById('loadMoreWrap');
-  wrap.style.display = maybeMore ? 'block' : 'none';
-  document.getElementById('stats').textContent =
-    `${rows.length} oferta(s) en estado ${STATUS}` + (maybeMore ? ' — hay más, usa “Cargar más”' : '');
+  // total = conteo real en la BD (todos los que matchean el filtro). Si el
+  // backend no lo devolvió, caemos al heurístico de "cargó tantas como pidió".
+  const hasTotal = Number.isFinite(total);
+  CURRENT_TOTAL = hasTotal ? total : null;
+  LOADED_COUNT = rows.length;
+  const hasMore = hasTotal ? rows.length < total : rows.length >= pageLimit;
+  document.getElementById('loadMoreWrap').style.display = hasMore ? 'block' : 'none';
+  document.getElementById('stats').textContent = hasTotal
+    ? `${total} oferta(s) en estado ${STATUS}` + (hasMore ? ` — mostrando ${rows.length}` : '')
+    : `${rows.length} oferta(s) en estado ${STATUS}` + (hasMore ? ' — hay más, usa “Cargar más”' : '');
   if (!rows.length) {
     list.innerHTML = '<div class="empty">No hay ofertas en este estado.</div>';
     return;
@@ -466,9 +472,12 @@ async function setStatus(key, status) {
   closeModal();
   if (card) card.remove();
   RECORDS_CACHE.delete(key);
-  const remaining = document.querySelectorAll('.card').length;
-  document.getElementById('stats').textContent = `${remaining} oferta(s) en estado ${STATUS}`;
-  if (!remaining) document.getElementById('list').innerHTML = '<div class="empty">No hay más.</div>';
+  LOADED_COUNT = document.querySelectorAll('.card').length;
+  if (CURRENT_TOTAL != null && CURRENT_TOTAL > 0) CURRENT_TOTAL -= 1;
+  const totalTxt = CURRENT_TOTAL != null ? CURRENT_TOTAL : LOADED_COUNT;
+  const shownTxt = (CURRENT_TOTAL != null && LOADED_COUNT < CURRENT_TOTAL) ? ` — mostrando ${LOADED_COUNT}` : '';
+  document.getElementById('stats').textContent = `${totalTxt} oferta(s) en estado ${STATUS}${shownTxt}`;
+  if (!LOADED_COUNT) document.getElementById('list').innerHTML = '<div class="empty">No hay más.</div>';
 }
 
 // ---------- Sync progress (background job + polling) ----------

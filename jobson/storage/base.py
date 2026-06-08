@@ -24,6 +24,22 @@ class BaseRepository(ABC):
     ) -> list[dict[str, Any]]:
         raise NotImplementedError
 
+    def count_results(
+        self,
+        source_type: str | None = None,
+        search_text: str | None = None,
+        user_status: str | None = None,
+        only_followups: bool = False,
+        review_status: str | None = None,
+        wp_status: str | None = None,
+        contact_status: str | None = None,
+        only_new_today: bool = False,
+    ) -> int | None:
+        """Total exacto de filas que matchean los filtros (sin límite).
+        Opcional: si el backend no lo soporta devuelve None y la UI cae al
+        conteo de las filas cargadas."""
+        return None
+
     @abstractmethod
     def update_result_status(self, dedupe_key: str, user_status: str | None) -> dict[str, Any] | None:
         raise NotImplementedError

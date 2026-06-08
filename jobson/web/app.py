@@ -271,7 +271,7 @@ def create_app(settings: Settings | None = None) -> Flask:
         query = (request.args.get("q") or "").strip()
         try:
             rows = repository.list_results(
-                limit=max(1, min(limit, 500)),
+                limit=max(1, min(limit, 1000)),
                 source_type=source_type,
                 search_text=query or None,
                 review_status=status,

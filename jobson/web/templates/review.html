@@ -167,6 +167,9 @@
 
 <div class="stats" id="stats"></div>
 <div class="list" id="list"></div>
+<div id="loadMoreWrap" style="display:none; text-align:center; padding:0 1.5rem 2.5rem;">
+  <button id="loadMore" style="padding:.6rem 1.4rem; border-radius:8px; border:1px solid #334155; background:#1e293b; color:#cbd5e1; cursor:pointer; font-size:.9rem;">Cargar más</button>
+</div>
 
 <!-- Modal de detalle -->
 <div class="modal-backdrop" id="modalBackdrop" onclick="if(event.target===this) closeModal()">
@@ -178,8 +181,16 @@ const STATUS = "{{ current_status }}";
 const IS_ADMIN = {{ 'true' if current_user and current_user.role == 'admin' else 'false' }};
 
 const RECORDS_CACHE = new Map();
+const PAGE_SIZE = 100;       // cuánto crece cada "Cargar más"
+let pageLimit = PAGE_SIZE;   // límite actual pedido al backend
 
 function escapeHtml(s){ return (s||'').toString().replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+// Resetea la paginación (al cambiar de filtro) y recarga desde el inicio.
+function reload() {
+  pageLimit = PAGE_SIZE;
+  return load();
+}
 
 async function load() {
   const src    = document.getElementById('src').value;
@@ -187,7 +198,7 @@ async function load() {
   const cst    = document.getElementById('cst').value;
   const nToday = document.getElementById('newToday').checked;
   const q      = document.getElementById('q').value.trim();
-  const params = new URLSearchParams({ status: STATUS, limit: 100 });
+  const params = new URLSearchParams({ status: STATUS, limit: pageLimit });
   if (src)    params.set('source_type', src);
   if (wpst)   params.set('wp_status', wpst);
   if (cst)    params.set('contact_status', cst);
@@ -293,7 +304,12 @@ function renderCard(r) {
 
 function render(rows) {
   const list = document.getElementById('list');
-  document.getElementById('stats').textContent = `${rows.length} oferta(s) en estado ${STATUS}`;
+  // Si devolvió tantas como pedimos, es muy probable que haya más.
+  const maybeMore = rows.length >= pageLimit;
+  const wrap = document.getElementById('loadMoreWrap');
+  wrap.style.display = maybeMore ? 'block' : 'none';
+  document.getElementById('stats').textContent =
+    `${rows.length} oferta(s) en estado ${STATUS}` + (maybeMore ? ' — hay más, usa “Cargar más”' : '');
   if (!rows.length) {
     list.innerHTML = '<div class="empty">No hay ofertas en este estado.</div>';
     return;
@@ -548,9 +564,13 @@ if (IS_ADMIN) {
   })();
 }
 
-['src','wpst','cst'].forEach(id => document.getElementById(id).addEventListener('change', load));
-document.getElementById('newToday').addEventListener('change', load);
-document.getElementById('q').addEventListener('input', () => { clearTimeout(window._t); window._t = setTimeout(load, 350); });
+['src','wpst','cst'].forEach(id => document.getElementById(id).addEventListener('change', reload));
+document.getElementById('newToday').addEventListener('change', reload);
+document.getElementById('q').addEventListener('input', () => { clearTimeout(window._t); window._t = setTimeout(reload, 350); });
+document.getElementById('loadMore').addEventListener('click', () => {
+  pageLimit += PAGE_SIZE;
+  load();
+});
 load();
 </script>
 </body>

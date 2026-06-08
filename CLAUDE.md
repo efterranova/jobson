@@ -84,6 +84,32 @@ Para sync contra prod en una sola shell:
 set -a && . ./.env.prod && set +a && .venv/bin/python main.py --publish-wp ...
 ```
 
+## Despliegue y roles (APP_ROLE)
+
+Misma app Flask, dos modos según `APP_ROLE` (default `full`, ver `jobson/config.py`):
+
+| | **viewer** | **full** |
+|---|---|---|
+| Dónde | **Vercel** (`api/index.py` fuerza `APP_ROLE=viewer`) | Mac local (`main.py --port 5050`) |
+| Dominio | **erecruit.automa.lat** (proyecto Vercel `erecruit-reviewer`) | `localhost:5050` (sin dominio público) |
+| Raíz `/` | redirige a login → `/review` | lanzador de scraping (`index.html`) |
+| Scraper / Playwright / login LinkedIn | ❌ | ✅ |
+| Sync a WP | ❌ (`sync_runner=None`) | ✅ |
+
+- **`erecruit.ca` / `staging2.erecruit.ca` NO son esta app** — son el WordPress destino. Esta app solo les hace push.
+- **NO hay auto-deploy desde GitHub.** Pushear a `main` no despliega. Para publicar a Vercel:
+  ```bash
+  vercel deploy --prod --yes
+  vercel alias set <nueva-url> erecruit.automa.lat   # el dominio NO sigue producción solo
+  ```
+  (el `.vercel/project.json` tiene projectId/orgId; el dominio se mapea en el dashboard, no en el repo.)
+
+## Supabase keep-alive (anti auto-pausa)
+
+- **Free tier se auto-pausa tras ~7 días de inactividad** → el host deja de resolver (`NXDOMAIN` / `Failed to resolve <ref>.supabase.co`). Afecta al Vercel viewer **y** a la app local (mismo host). Fix: restaurar el proyecto en el dashboard de Supabase (1-3 min en propagar DNS).
+- **Preventivo:** cron diario de Vercel (`vercel.json` → `"0 6 * * *"`) que pega a **`GET /api/keepalive`** (lee 1 fila vía REST → mantiene el proyecto activo). El cron corre contra el deployment de producción, no contra el dominio custom. Honra `CRON_SECRET` si está seteado.
+- DDL contra la BD viva (ej. `ALTER` de constraints): no entra por PostgREST. Usar el **SQL Editor** del dashboard, o la **Management API** (`POST https://api.supabase.com/v1/projects/<ref>/database/query` con un access token `sbp_...`).
+
 ## Reglas estrictas (decisiones del usuario)
 
 1. **Nunca inventar `_company_email` en WP.** Solo se guarda si llega un email corporativo validado. El user de WP (employer) sí usa pattern `no-reply+slug@erecruit.ca` porque WP exige email — pero esa cuenta no se expone públicamente.
@@ -108,8 +134,11 @@ set -a && . ./.env.prod && set +a && .venv/bin/python main.py --publish-wp ...
 - **El email/web NO está en el HTML estático.** Se revela con el botón "Show how to apply", que es un **POST JSF parcial** (`jsf.ajax.request`) con `ViewState=stateless`. `JobBankScraper._reveal_apply` lo replica: POST a la URL del posting con los params `jakarta.faces.partial.*` + `action=applynowbutton`. La respuesta es un `<partial-response>` XML con el bloque `applynow` (email, URL de empresa o teléfono).
 - **Métodos de aplicación variados:** "By email" (email corporativo o genérico), "By Direct Apply"/"Online" (URL de empresa), "In person"/"By phone" (sin contacto digital → `sin_contacto`/skipped).
 - **Búsqueda:** `searchstring=` (matching por ocupación NOC, no full-text literal — frases largas como "Employment Law" devuelven 0; usa términos cortos: `human resources`, `recruiter`, `lawyer`, `compliance`). `locationstring=` ej. `Toronto, ON`. `sort=M` = más recientes primero. Paginación con `&page=N`.
-- **`location_text` formato `Ciudad (PROV)`** (ej. `North Vancouver (BC)`); `geo_extractor._extract_jobbank` lo parsea a city + provincia + país Canadá. `Various locations` → city None.
+- **Paginación NO corta en página sin directos.** Muchas keywords (ej. `director`: 57 directos en pages 2-8 pero **0 en page 1**) tienen la página 1 llena de agregados. El scraper solo se detiene cuando una página no trae **ningún** `<article>` (fin real); si trae avisos pero todos agregados, sigue a la siguiente (cap `max_pages=25`). Cortar en la primera página sin directos = bug que devuelve 0 falsamente.
+- **Roles senior rinden pocos directos.** Job Bank skew hacia PYMEs/roles operativos: `human resources`→83/200 directos, `director`→57/200, `recruiter`→4/5, `legal counsel`→**0** (todos agregados, sin email). Para keywords legales/muy ejecutivas vas a sacar poco contacto directo.
+- **`location_text` formato `Ciudad (PROV)`** (ej. `North Vancouver (BC)`); `geo_extractor._extract_jobbank` lo parsea a city + provincia + país Canadá. `Various locations` → city None. Job Bank solo tiene empleos en Canadá → la UI avisa si buscas solo Job Bank con ubicación no-canadiense (ej. el default `Ecuador`).
 - **Agregadores canadienses** (careerbeacon, talent.com, allstarjobs.ca, civicjobs.ca, eluta, workopolis, neuvoo, jobbank.gc.ca) están en `DEFAULT_PORTAL_BLACKLIST` para que sus URLs no se tomen como web de empresa.
+- **CHECK constraint en BD:** `source_type` debe incluir `jobbank` (`linkedin_results_source_type_chk` en `supabase/schema.sql`). Si falta, los upserts fallan con error Postgres `23514` y **nada se guarda en silencio** (el scrape funciona pero la tabla queda vacía).
 
 ## Mu-plugin WP (deploy/wordpress/jobson-rest.php)
 
@@ -149,7 +178,9 @@ jobson/
 deploy/
   wordpress/jobson-rest.php   # mu-plugin (subir manualmente)
 
-supabase/schema.sql           # tabla linkedin_results + índices
+api/index.py                  # entrypoint serverless Vercel (fuerza APP_ROLE=viewer)
+vercel.json                   # build Python + cron diario keep-alive (/api/keepalive)
+supabase/schema.sql           # tabla linkedin_results + índices + CHECK constraints
 sessions/storage_state.json   # cookies LinkedIn (no commitear)
 .env / .env.prod              # config staging/prod (.env.prod gitignoreado)
 scripts/run_daily.sh          # cron wrapper
@@ -158,7 +189,8 @@ scripts/run_daily.sh          # cron wrapper
 ## Convenciones
 
 - Repos paralelos en `BaseRepository`: sqlite (local dev) y supabase (prod). Misma interfaz.
-- `VALID_SOURCES = ("linkedin", "tpe", "jobbank")`. `source_type` en el record: linkedin→`jobs`/`feed`, tpe→`tpe`, jobbank→`jobbank`.
+- `VALID_SOURCES = ("linkedin", "tpe", "jobbank")`. `source_type` en el record: linkedin→`jobs`/`feed`, tpe→`tpe`, jobbank→`jobbank`. Cada valor nuevo debe agregarse al CHECK `linkedin_results_source_type_chk` en la BD (si no, upsert falla con `23514`). La UI maneja `tpe` y `tuportalempleo` defensivamente (ambos existen en datos históricos).
+- **Conteo en el revisor:** `/api/review` devuelve `total` (count exacto vía PostgREST `count=exact`, `repo.count_results()`) además de las filas; el front muestra "N en estado X — mostrando M" y pagina con "Cargar más" (no capear a 100).
 - `VALID_WP_STATUSES = {"pending","synced","skipped","failed","discarded"}`. `synced`/`failed`/`discarded` son **terminales** (upsert preserva el valor previo).
 - Featured-image cache en WP es persistente y compartido — borrar un job no borra el attachment.
 

@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name: JobsOn REST Bridge for WP Job Manager
- * Description: Expone meta WP Job Manager + Cariera al REST y añade upsert idempotente por dedupe_key. Asigna taxonomías por slug (no crea nuevas), crea/matchea employer users por display_name, y opcionalmente sideloadea una featured image por URL con cache en option `jobson_image_cache`.
- * Version:     1.3.2
+ * Description: Expone meta WP Job Manager + Cariera al REST y añade upsert idempotente por dedupe_key. Asigna taxonomías por slug (no crea nuevas), idioma Polylang por post, crea/matchea employer users por display_name, y opcionalmente sideloadea una featured image por URL con cache en option `jobson_image_cache`.
+ * Version:     1.4.0
  * Author:      JobsOn
  *
  * Instala este archivo en wp-content/mu-plugins/jobson-rest.php
@@ -280,6 +280,10 @@ function jobson_find_by_dedupe(string $dedupe_key): int {
         'post_status'    => ['publish', 'draft', 'pending', 'expired', 'preview'],
         'posts_per_page' => 1,
         'fields'         => 'ids',
+        // 'lang' => '' desactiva el filtro de idioma de Polylang: el dedupe debe
+        // buscar en TODOS los idiomas, si no un aviso EN no se encontraría (Polylang
+        // filtra por el idioma "actual", que en REST cae al default es) y se duplicaría.
+        'lang'           => '',
         'meta_query'     => [[
             'key'   => '_jobson_dedupe_key',
             'value' => $dedupe_key,
@@ -287,6 +291,25 @@ function jobson_find_by_dedupe(string $dedupe_key): int {
         'no_found_rows'  => true,
     ]);
     return $q->have_posts() ? (int) $q->posts[0] : 0;
+}
+
+/**
+ * Asigna el idioma Polylang al post (si Polylang está activo). Sin esto, todo
+ * job_listing nace en el idioma por defecto (es) y los avisos en inglés NO
+ * aparecen en el board EN (/en/jobs/), aunque tengan taxonomías inglesas.
+ * Valida $lang contra los idiomas configurados; si no calza, usa el default.
+ */
+function jobson_set_post_language(int $post_id, string $lang): void {
+    if (!function_exists('pll_set_post_language')) {
+        return; // Polylang no instalado → no-op
+    }
+    $langs  = function_exists('pll_languages_list') ? pll_languages_list() : [];
+    $target = in_array($lang, $langs, true)
+        ? $lang
+        : (function_exists('pll_default_language') ? pll_default_language() : 'es');
+    if ($target) {
+        pll_set_post_language($post_id, $target);
+    }
 }
 
 /**
@@ -375,6 +398,10 @@ function jobson_rest_upsert(WP_REST_Request $req) {
     }
 
     update_post_meta($post_id, '_jobson_dedupe_key', $dedupe_key);
+
+    // Idioma Polylang: debe setearse ANTES de asignar taxonomías para que los
+    // términos (ES/EN) queden en el idioma correcto y el aviso aparezca en su board.
+    jobson_set_post_language($post_id, $lang);
 
     foreach ($meta_in as $key => $value) {
         if (!in_array($key, $allowed_meta, true)) {

@@ -387,7 +387,7 @@ def main() -> None:
     parser.add_argument(
         "--wp-source-type",
         type=str,
-        choices=["jobs", "feed"],
+        choices=["jobs", "feed", "jobbank", "tpe"],
         help="Publica solo registros de este origen (recomendado: 'jobs' para ofertas estructuradas)",
     )
     parser.add_argument(

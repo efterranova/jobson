@@ -577,6 +577,14 @@ def normalize_record(record: dict[str, Any]) -> dict[str, Any]:
     content_html = clean_content(record.get("content"), fallback_summary=record.get("summary"))
     location = extract_location(record)
     lang = detect_language(record)
+    # Override autoritativo por fuente: Job Bank es 100% Canadá (inglés) y TPE es
+    # Ecuador (español). Para el resto (LinkedIn) confiamos en langdetect sobre el
+    # contenido. Esto evita que avisos claramente EN/ES caigan en el board equivocado.
+    src = (record.get("source_type") or "").lower()
+    if src == "jobbank":
+        lang = "en"
+    elif src in ("tpe", "tuportalempleo"):
+        lang = "es"
     return {
         "title":     title or "Oferta sin título",
         "content":   content_html,

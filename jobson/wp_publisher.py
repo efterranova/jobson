@@ -123,9 +123,10 @@ def _apply_ai_overrides(norm: dict[str, Any], ai_data: dict[str, Any]) -> dict[s
         norm["location"] = str(ai_data["location"]).strip()
     if isinstance(ai_data.get("is_remote"), bool):
         norm["remote"] = ai_data["is_remote"]
-    lang = ai_data.get("language")
-    if lang in ("es", "en"):
-        norm["language"] = lang
+    # NO dejamos que la IA sobrescriba el idioma: langdetect sobre el contenido +
+    # el override por fuente (jobbank=en, tpe=es) en normalize_record son más
+    # fiables. La IA devolvía language="es" para avisos claramente en inglés y los
+    # mandaba al board español (auditoría 2026-06-10: 10 avisos LinkedIn EN→ES).
     jt = ai_data.get("job_type")
     if jt and jt in JOB_TYPE_BY_LANG.get(norm["language"], {}):
         norm["job_types"] = [JOB_TYPE_BY_LANG[norm["language"]][jt]]
